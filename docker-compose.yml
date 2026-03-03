@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # 1. 你的 Python API 伺服器
+  backend_api:
+    build: .
+    ports:
+      - "8000:8000" # 將本機的 8000 port 映射到容器的 8000 port
+    volumes:
+      - .:/app # 將本機目錄映射到容器內，這樣你修改 main.py 就不需要重新 build
+    env_file:
+      - .env # 載入 .env 檔案內的金鑰與變數
+    environment:
+      - CHROMA_DB_URL=http://vector_db:8000 # 讓 API 知道怎麼連線到向量資料庫
+    depends_on:
+      - vector_db # 確保資料庫先啟動，API 才啟動
+
+  # 2. 未來 RAG 需要用到的向量資料庫 (ChromaDB)
+  vector_db:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000" # 本機用 8001 連線，避免跟 FastAPI 的 8000 衝突
+    volumes:
+      - chroma_data:/chroma/chroma # 設定資料卷，讓向量資料庫的資料永久保存，重開機不會不見
+
+# 宣告資料卷
+volumes:
+  chroma_data:
