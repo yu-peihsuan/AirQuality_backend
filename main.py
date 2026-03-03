@@ -17,7 +17,9 @@ def get_air_quality(county: str = None):
     try:
         response = requests.get(url)
         data = response.json()
-        records = data.get("records", [])
+        
+        # 處理 API: 若格式為直接的陣列(list)，或是包在 dict 裡的 "records"
+        records = data if isinstance(data, list) else data.get("records", [])
         
         if county:
             # 篩選特定縣市的測站
