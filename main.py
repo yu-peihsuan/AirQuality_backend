@@ -11,7 +11,7 @@ def read_root():
 @app.get("/api/air_quality")
 def get_air_quality(county: str = None):
     # 從環境變數讀取 API Key (.env 內設定)
-    API_KEY = os.getenv("MOENV_API_KEY", "5e6034a1-e9ba-4558-96cc-40e7522bfc93")
+    API_KEY = os.getenv("MOENV_API_KEY", "REPLACE_WITH_YOUR_API_KEY")
     url = f"https://data.moenv.gov.tw/api/v2/aqx_p_432?api_key={API_KEY}&limit=1000&sort=ImportDate desc&format=JSON"
     
     try:
