@@ -2,10 +2,15 @@ from fastapi import FastAPI
 import requests
 import os
 import urllib3
+import json
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = FastAPI()
+
+def normalize_name(name: str) -> str:
+    """將「臺」統一轉為「台」，使兩者在比對時視為相同。"""
+    return name.replace("臺", "台") if name else name
 
 @app.get("/")
 def read_root():
@@ -25,8 +30,9 @@ def get_air_quality(county: str = None):
         records = data if isinstance(data, list) else data.get("records", [])
         
         if county:
-            # 篩選特定縣市的測站
-            records = [r for r in records if r.get("county") == county]
+            # 篩選特定縣市的測站（台／臺視為相同）
+            norm_county = normalize_name(county)
+            records = [r for r in records if normalize_name(r.get("county", "")) == norm_county]
             
         return {
             "status": "success", 
@@ -80,8 +86,9 @@ def get_weather(county: str = None):
             })
         
         if county:
-            # 篩選特定縣市的測站
-            records = [r for r in records if r.get("county") == county]
+            # 篩選特定縣市的測站（台／臺視為相同）
+            norm_county = normalize_name(county)
+            records = [r for r in records if normalize_name(r.get("county", "")) == norm_county]
             
         return {
             "status": "success", 
@@ -96,3 +103,44 @@ def get_weather(county: str = None):
             "message": f"連線錯誤: {str(e)}",
             "records": []
         }
+
+@app.get("/api/news")
+def get_news(region: str = None):
+    try:
+        file_path = os.path.join(os.path.dirname(__file__), "crawler", "scraped_news.json")
+        if not os.path.exists(file_path):
+            return {
+                "status": "error",
+                "region": region,
+                "message": "找不到新聞資料檔案",
+                "records": []
+            }
+            
+        with open(file_path, "r", encoding="utf-8") as f:
+            news_data = json.load(f)
+            
+        if region:
+            filtered_news = []
+            norm_region = normalize_name(region)
+            for n in news_data:
+                news_region = n.get("region", "")
+                norm_news_region = normalize_name(news_region)
+                # 只顯示有明確標記該地區的新聞
+                if (norm_region in norm_news_region) or (norm_news_region in norm_region):
+                    filtered_news.append(n)
+            news_data = filtered_news
+            
+        return {
+            "status": "success",
+            "region": region,
+            "message": "成功取得新聞資料",
+            "records": news_data
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "region": region,
+            "message": f"讀取新聞失敗: {str(e)}",
+            "records": []
+        }
+

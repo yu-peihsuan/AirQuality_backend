@@ -16,5 +16,8 @@ COPY . .
 # 宣告容器會使用的 Port
 EXPOSE 8000
 
-# 容器啟動時要執行的指令 (啟動 FastAPI 伺服器)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 給啟動腳本執行權限
+RUN chmod +x start.sh
+
+# 容器啟動時：先跑爬蟲，再啟動 FastAPI
+CMD ["sh", "start.sh"]
