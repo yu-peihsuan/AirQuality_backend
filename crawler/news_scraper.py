@@ -60,8 +60,21 @@ DISTRICTS = {
     "馬祖": ["南竿", "北竿", "莒光", "東引"]
 }
 
+# 特定地標／園區 → 直接對應縣市（優先比對，避免漏抓）
+LOCATION_ALIASES = {
+    "竹科":   "新竹市",   # 新竹科學工業園區
+    "中科":   "台中市",   # 中部科學工業園區
+    "南科":   "台南市",   # 南部科學工業園區
+    "工業區": None,       # 太廣，不單獨判定
+}
+
 def extract_region(text):
     """從標題或摘要中擷取地區，精確到鄉鎮市區"""
+    # 0. 優先比對地標別名
+    for alias, region_name in LOCATION_ALIASES.items():
+        if alias in text and region_name:
+            return region_name
+
     found_county = None
     found_district = None
 
