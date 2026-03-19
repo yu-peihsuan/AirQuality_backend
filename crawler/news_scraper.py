@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import os
 import re
+import sqlite3
 
 # 關鍵字過濾：空氣品質相關災情
 KEYWORDS = ["火災", "火警", "大火", "濃煙","空污", "空汙", "異味", "空氣品質", "失火", "臭味", "工廠大火", "工廠火災", "火燒山"]
@@ -37,28 +38,33 @@ def is_within_last_3_days(published_str):
         print(f"時間解析失敗: {published_str}, {e}")
         return True
 
-DISTRICTS = {
-    "台北": ["中正", "大同", "中山", "松山", "大安", "萬華", "信義", "士林", "北投", "內湖", "南港", "文山"],
-    "新北": ["萬里", "金山", "板橋", "汐止", "深坑", "石碇", "瑞芳", "平溪", "雙溪", "貢寮", "新店", "坪林", "烏來", "永和", "中和", "土城", "三峽", "樹林", "鶯歌", "三重", "新莊", "泰山", "林口", "蘆洲", "五股", "八里", "淡水", "三芝", "石門"],
-    "基隆": ["仁愛", "信義", "中正", "中山", "安樂", "暖暖", "七堵"],
-    "桃園": ["中壢", "平鎮", "龍潭", "楊梅", "新屋", "觀音", "桃園", "龜山", "八德", "大溪", "復興", "大園", "蘆竹"],
-    "新竹": ["東區", "北區", "香山", "竹北", "湖口", "新豐", "新埔", "關西", "芎林", "寶山", "竹東", "五峰", "橫山", "尖石", "北埔", "峨眉"],
-    "苗栗": ["竹南", "頭份", "三灣", "南庄", "獅潭", "後龍", "通霄", "苑裡", "苗栗", "造橋", "頭屋", "公館", "大湖", "泰安", "銅鑼", "三義", "西湖", "卓蘭"],
-    "台中": ["中區", "東區", "南區", "西區", "北區", "北屯", "西屯", "南屯", "太平", "大里", "霧峰", "烏日", "豐原", "后里", "石岡", "東勢", "和平", "新社", "潭子", "大雅", "神岡", "大肚", "沙鹿", "龍井", "梧棲", "清水", "大甲", "外埔", "大安"],
-    "彰化": ["彰化", "芬園", "花壇", "秀水", "鹿港", "福興", "線西", "和美", "伸港", "員林", "社頭", "永靖", "埔心", "溪湖", "大村", "埔鹽", "田中", "北斗", "田尾", "埤頭", "溪州", "竹塘", "二林", "大城", "芳苑", "二水"],
-    "南投": ["南投", "中寮", "草屯", "國姓", "埔里", "仁愛", "名間", "集集", "水里", "魚池", "信義", "竹山", "鹿谷"],
-    "雲林": ["斗南", "大埤", "虎尾", "土庫", "褒忠", "東勢", "台西", "崙背", "麥寮", "斗六", "林內", "古坑", "莿桐", "西螺", "二崙", "北港", "水林", "口湖", "四湖", "元長"],
-    "嘉義": ["東區", "西區", "番路", "梅山", "竹崎", "阿里山", "中埔", "大埔", "水上", "鹿草", "太保", "朴子", "東石", "六腳", "新港", "民雄", "大林", "溪口", "義竹", "布袋"],
-    "台南": ["中西", "東區", "南區", "北區", "安平", "安南", "永康", "歸仁", "新化", "左鎮", "玉井", "楠西", "南化", "仁德", "關廟", "龍崎", "官田", "麻豆", "佳里", "西港", "七股", "將軍", "學甲", "北門", "新營", "後壁", "白河", "東山", "六甲", "下營", "柳營", "鹽水", "善化", "大內", "山上", "新市", "安定"],
-    "高雄": ["新興", "前金", "苓雅", "鹽埕", "鼓山", "旗津", "前鎮", "三民", "楠梓", "小港", "左營", "仁武", "大社", "岡山", "路竹", "阿蓮", "田寮", "燕巢", "橋頭", "梓官", "彌陀", "永安", "湖內", "鳳山", "大寮", "林園", "鳥松", "大樹", "旗山", "美濃", "六龜", "內門", "杉林", "甲仙", "桃源", "那瑪夏", "茂林", "茄萣"],
-    "屏東": ["屏東", "三地門", "霧台", "瑪家", "九如", "里港", "高樹", "鹽埔", "長治", "麟洛", "竹田", "內埔", "萬丹", "潮州", "泰武", "來義", "萬巒", "崁頂", "新埤", "南州", "林邊", "東港", "琉球", "佳冬", "新園", "枋寮", "枋山", "春日", "獅子", "車城", "牡丹", "恆春", "滿州"],
-    "宜蘭": ["宜蘭", "頭城", "礁溪", "壯圍", "員山", "羅東", "三星", "大同", "五結", "冬山", "蘇澳", "南澳"],
-    "花蓮": ["花蓮", "新城", "秀林", "吉安", "壽豐", "鳳林", "光復", "豐濱", "瑞穗", "萬榮", "玉里", "卓溪", "富里"],
-    "台東": ["台東", "綠島", "蘭嶼", "延平", "卑南", "鹿野", "關山", "海端", "池上", "東河", "成功", "長濱", "太麻里", "金峰", "大武", "達仁"],
-    "澎湖": ["馬公", "西嶼", "望安", "七美", "白沙", "湖西"],
-    "金門": ["金沙", "金湖", "金寧", "金城", "烈嶼", "烏坵"],
-    "馬祖": ["南竿", "北竿", "莒光", "東引"]
+# 從 CityCountyData.json 動態載入 DISTRICTS
+# JSON 結構: [{"CityName": "臺北市", "AreaList": [{"AreaName": "中正區"}, ...]}, ...]
+_CITY_ALIAS = {
+    "連江": "馬祖",   # 連江縣 = 馬祖
+    "釣魚臺": None,   # 排除釣魚台
+    "南海島": None,   # 排除南海島
 }
+_SKIP_CITIES = {"釣魚臺", "南海島"}
+
+_json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "CityCountyData.json")
+with open(_json_path, encoding="utf-8") as _f:
+    _city_data = json.load(_f)
+
+DISTRICTS = {}
+for _city in _city_data:
+    _city_name = _city["name"].replace("臺", "台")  # 統一用「台」
+    _short = _city_name.rstrip("市縣")               # 去掉後綴，e.g. "台北"
+    if _short in _SKIP_CITIES:
+        continue
+    _short = _CITY_ALIAS.get(_short, _short)         # 套用別名
+    if _short is None:
+        continue
+    _districts = [area["name"].rstrip("區鄉鎮市") for area in _city["districts"]]
+    if _short not in DISTRICTS:
+        DISTRICTS[_short] = _districts
+    else:
+        DISTRICTS[_short].extend(d for d in _districts if d not in DISTRICTS[_short])
 
 # 特定地標／園區 → 直接對應縣市（優先比對，避免漏抓）
 LOCATION_ALIASES = {
@@ -276,6 +282,55 @@ def fetch_google_news():
         print(f"獲取 Google News 失敗: {e}")
         return []
 
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "news.db")
+
+def init_db():
+    """建立資料庫與資料表（若不存在）"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS news (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            source      TEXT,
+            region      TEXT,
+            title       TEXT,
+            summary     TEXT,
+            url         TEXT UNIQUE,
+            published_at TEXT,
+            timestamp   TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def save_to_db(news_list):
+    """將新聞清單寫入 SQLite，url 重複則略過（INSERT OR IGNORE）"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    inserted = 0
+    for news in news_list:
+        try:
+            cursor.execute("""
+                INSERT OR IGNORE INTO news
+                    (source, region, title, summary, url, published_at, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                news.get("source", ""),
+                news.get("region", ""),
+                news.get("title", ""),
+                news.get("summary", ""),
+                news.get("url", ""),
+                news.get("published_at", ""),
+                news.get("timestamp", ""),
+            ))
+            if cursor.rowcount > 0:
+                inserted += 1
+        except Exception as e:
+            print(f"寫入 DB 失敗: {e}")
+    conn.commit()
+    conn.close()
+    print(f"💾 已將 {inserted} 筆新資料寫入資料庫: {DB_PATH}")
+    return inserted
+
 def run_scraper():
     """執行爬蟲並印出結果"""
     all_news = []
@@ -310,9 +365,13 @@ if __name__ == "__main__":
     
     results = run_scraper()
     
-    # 將爬取結果存成 JSON 檔案進行檢視與測試
+    # 寫入 SQLite 資料庫
+    init_db()
+    save_to_db(results)
+    
+    # 同時也存成 JSON 方便檢視
     output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scraped_news.json')
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
         
-    print(f"💾 已將詳細結果儲存至: {output_path}")
+    print(f"📄 JSON 備份已儲存至: {output_path}")
