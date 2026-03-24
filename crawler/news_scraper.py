@@ -6,6 +6,15 @@ import json
 import os
 import re
 import sqlite3
+import sys
+
+# LLM 語意結構化（OpenRouter OPENAI_API_KEY 需設定）
+try:
+    from rag.llm_structurer import structure_news_batch
+    _LLM_STRUCTURING_ENABLED = True
+except ImportError:
+    _LLM_STRUCTURING_ENABLED = False
+    print("⚠️  rag.llm_structurer 未找到，跳過語意結構化")
 
 # 關鍵字過濾：空氣品質相關災情
 KEYWORDS = ["火災", "火警", "大火", "濃煙","空污", "空汙", "異味", "空氣品質", "失火", "臭味", "工廠大火", "工廠火災", "火燒山"]
@@ -331,7 +340,7 @@ def save_to_db(news_list):
     print(f"💾 已將 {inserted} 筆新資料寫入資料庫: {DB_PATH}")
     return inserted
 
-def run_scraper():
+def run_scraper(enable_llm_structuring: bool = True):
     """執行爬蟲並印出結果"""
     all_news = []
     
@@ -353,9 +362,14 @@ def run_scraper():
          print(f"   時間: {news['published_at']}")
          print(f"   來源: {news['source']}")
          if news['summary']:
-             # 印出前 50 個字的摘要
              print(f"   摘要: {news['summary'][:50]}...")
          print(f"   連結: {news['url']}\n")
+
+    # LLM 語意結構化（若模組存在且未被禁用）
+    if enable_llm_structuring and _LLM_STRUCTURING_ENABLED and all_news:
+        print("--------------------------------------------------")
+        all_news = structure_news_batch(all_news)
+        print("--------------------------------------------------")
     
     return all_news
 
