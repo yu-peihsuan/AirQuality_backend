@@ -24,6 +24,40 @@ TAIWAN_COUNTIES = ["台北", "新北", "基隆", "桃園", "新竹", "苗栗", "
 TAIWAN_KEYWORDS = TAIWAN_COUNTIES + ["台灣", "縣", "市", "區", "鄉", "鎮"]
 FOREIGN_KEYWORDS = ["中國", "美國", "日本", "韓國", "加州", "澳洲", "歐洲", "印尼", "印度", "俄羅斯", "烏克蘭", "加薩", "以色列", "國外", "世界", "國際"]
 
+# ── 方法一：規則層 ────────────────────────────────────────────────────────────
+# 排除詞：含這些詞的新聞大概率不是即時事件
+NON_REALTIME_EXCLUSIONS = [
+    "回顧", "紀念", "週年", "歷史", "周年紀念",
+    "電影", "戲劇", "小說", "書評", "遊戲",
+    "判決", "起訴", "賠償", "審判", "開庭", "法院", "訴訟",
+    "演習", "演練", "防災教育", "消防講習", "防火宣導",
+    "保險", "理賠", "股票", "ETF", "投資",
+]
+
+# 即時性正向提示詞（標題+摘要至少含一個，才視為即時事件）
+REALTIME_HINTS = [
+    "今", "昨", "今日", "昨日", "今天", "昨天", "明天",
+    "剛才", "剛剛", "凌晨", "上午", "下午", "深夜", "晚間",
+    "發生", "延燒", "竄火", "冒煙", "濃煙", "悶燒", "起火",
+    "警消", "消防", "出動", "搶救", "現場", "撲滅", "灌救",
+    "民眾", "居民", "通報", "發現",
+]
+
+def is_realtime_event(title: str, summary: str = "") -> bool:
+    """方法一：規則層 — 判斷新聞是否為即時事件。
+    
+    流程：
+    1. 含排除詞（歷史/判決/演習等）→ False
+    2. 不含任何即時性提示詞 → False
+    3. 其餘 → True
+    """
+    text = title + " " + summary
+    if any(exc in text for exc in NON_REALTIME_EXCLUSIONS):
+        return False
+    if not any(hint in text for hint in REALTIME_HINTS):
+        return False
+    return True
+
 def is_within_last_3_days(published_str):
     """檢查新聞發布時間是否在過去 3 天內"""
     if not published_str:
@@ -168,6 +202,11 @@ def fetch_pts_news():
                 continue
             if not any(tw_city in title for tw_city in TAIWAN_KEYWORDS):
                  continue
+
+            # 方法一：規則層內容判斷
+            if not is_realtime_event(title, summary):
+                print(f"  ⏭ 規則過濾移除（公視）：{title[:40]}")
+                continue
                  
             if not is_within_last_3_days(published):
                 continue
@@ -212,6 +251,11 @@ def fetch_yahoo_news():
                     continue
                 if not any(tw_city in title for tw_city in TAIWAN_KEYWORDS):
                      continue
+
+                # 方法一：規則層內容判斷
+                if not is_realtime_event(title, summary):
+                    print(f"  ⏭ 規則過濾移除（Yahoo）：{title[:40]}")
+                    continue
                      
                 if not is_within_last_3_days(published):
                     continue
@@ -262,6 +306,11 @@ def fetch_google_news():
             # 2. (選擇性) 確保標題中「包含」台灣地名，這樣更嚴格。如果你覺得太嚴格可以註解掉下面這兩行。
             if not any(tw_city in title for tw_city in TAIWAN_KEYWORDS):
                  continue
+
+            # 方法一：規則層內容判斷（Google RSS 無 summary，僅用 title 判斷）
+            if not is_realtime_event(title):
+                print(f"  ⏭ 規則過濾移除（Google）：{title[:40]}")
+                continue
             
             # Google RSS 通常把新聞來源放在 title 最後的 " - 來源名稱"
             source = "Google News"

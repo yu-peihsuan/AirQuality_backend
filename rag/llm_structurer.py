@@ -24,11 +24,12 @@ _STRUCTURING_PROMPT = """你是一個專業的空氣污染事件分析系統。
   "severity": "<low|medium|high|critical|unknown>",
   "location_description": "<從文章擷取的具體地點描述，例如：台中市北屯區某工廠>",
   "affected_radius_estimate": "<預估影響範圍，例如：500公尺、1公里，若無法判斷填 null>",
-  "is_confirmed_pollution_event": <true 或 false，是否為確認的污染事件（非測試或無效回報）>,
+  "is_confirmed_pollution_event": <true 或 false，是否為確認的污染事件（非誤報、非測試、非無效回報）>,
+  "is_realtime_incident": <true 或 false，是否為當下正在發生或剛發生不久的即時事件；歷史回顧、法律判決、防災演習、教育宣導等一律為 false>,
   "confidence": "<high|medium|low，對上述判斷的信心程度>"
 }}
 
-嚴格回傳 JSON，不要有任何其他文字。"""
+嚴格回傳 JSON，不要有任何其他文字."""
 
 
 def structure_news_event(news_item: dict) -> dict:
@@ -89,6 +90,7 @@ def structure_news_event(news_item: dict) -> dict:
 def structure_news_batch(news_list: list[dict]) -> list[dict]:
     """
     批次處理新聞清單，回傳每筆加上 structured_event 欄位的清單。
+    方法二：結構化完成後依 is_confirmed_pollution_event + is_realtime_incident 過濾。
     """
     if not news_list:
         return []
@@ -104,16 +106,33 @@ def structure_news_batch(news_list: list[dict]) -> list[dict]:
             etype = event.get("event_type", "unknown")
             severity = event.get("severity", "unknown")
             confirmed = event.get("is_confirmed_pollution_event", False)
+            realtime = event.get("is_realtime_incident", False)
             print(
                 f"  [{i}/{len(news_list)}] {news.get('title', '')[:30]}... "
-                f"→ {etype} / {severity} / 確認:{confirmed}"
+                f"→ {etype} / {severity} / 確認:{confirmed} / 即時:{realtime}"
             )
         else:
             print(f"  [{i}/{len(news_list)}] ⚠️ 結構化失敗")
 
-    confirmed_count = sum(
-        1 for r in results
-        if r.get("structured_event") and r["structured_event"].get("is_confirmed_pollution_event")
-    )
-    print(f"✅ 結構化完成：{len(results)} 筆中有 {confirmed_count} 筆確認為污染事件。")
-    return results
+    # ── 方法二：LLM 過濾 ─────────────────────────────────────────────────────
+    # 必須同時滿足：確認為污染事件 AND 為即時新聞
+    # 結構化失敗（structured_event 為 None）時保守保留，避免誤刪
+    filtered = []
+    for r in results:
+        ev = r.get("structured_event")
+        if ev is None:
+            filtered.append(r)  # 結構化失敗，保守保留
+            continue
+        confirmed = ev.get("is_confirmed_pollution_event", False)
+        realtime  = ev.get("is_realtime_incident", False)
+        if confirmed and realtime:
+            filtered.append(r)
+        else:
+            reason = []
+            if not confirmed: reason.append("非確認污染事件")
+            if not realtime:  reason.append("非即時新聞")
+            print(f"  ❌ LLM 過濾移除（{'、'.join(reason)}）：{r.get('title', '')[:40]}")
+
+    before, after = len(results), len(filtered)
+    print(f"✅ 語意結構化完成：{before} 筆 → LLM 過濾後保留 {after} 筆即時污染事件。")
+    return filtered
