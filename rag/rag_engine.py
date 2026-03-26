@@ -39,7 +39,7 @@ _ADVICE_PROMPT = """你是一個空氣品質健康顧問系統，請根據以下
 3. 若 AQI 良好且無污染事件，給予正向鼓勵（適合外出運動等）。
 4. 若 AQI 超標或有污染事件，給出**具體、可執行**的防護建議。
 5. 特別考量用戶的健康狀況，給出個人化提醒。
-6. 長度控制在 2~4 句話，不要過長。
+6. 長度控制在 **1~2 句話**，精簡有力，不要廢話。
 7. 不要用「根據健康指引」、「根據 WHO 建議」等制式開場白。"""
 
 
@@ -151,7 +151,7 @@ def generate_advice(
                 {"role": "user", "content": prompt},
             ],
             temperature=0.7,
-            max_tokens=300,
+            max_tokens=100,
         )
 
         advice = response.choices[0].message.content.strip()

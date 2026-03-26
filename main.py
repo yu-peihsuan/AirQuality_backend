@@ -179,6 +179,8 @@ class RagAdviceRequest(BaseModel):
     county: str
     latitude: float | None = None
     longitude: float | None = None
+    aqi: int | None = None
+    pm25: float | None = None
     user_profile: UserProfile = UserProfile()
 
 
@@ -319,10 +321,14 @@ def get_rag_advice(req: RagAdviceRequest):
     try:
         county = req.county
 
-        # 1. 取得當地 AQI 資料
-        aqi_data = _fetch_aqi_for_county(county)
-        aqi = aqi_data.get("aqi", 0)
-        pm25 = aqi_data.get("pm25", 0.0)
+        # 1. 取得當地 AQI 資料（若前端已傳入則直接使用，不重複呼叫 API）
+        if req.aqi is not None:
+            aqi = req.aqi
+            pm25 = req.pm25 if req.pm25 is not None else 0.0
+        else:
+            aqi_data = _fetch_aqi_for_county(county)
+            aqi = aqi_data.get("aqi", 0)
+            pm25 = aqi_data.get("pm25", 0.0)
 
         # 2. 取得氣象資料
         wind_data = _fetch_wind_for_county(county)
