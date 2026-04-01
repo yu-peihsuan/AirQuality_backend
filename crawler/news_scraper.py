@@ -1,12 +1,10 @@
 import feedparser
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import json
 import os
-import re
 import sqlite3
-import sys
 
 # LLM 語意結構化（OpenRouter OPENAI_API_KEY 需設定）
 try:
@@ -17,11 +15,25 @@ except ImportError:
     print("⚠️  rag.llm_structurer 未找到，跳過語意結構化")
 
 # 關鍵字過濾：空氣品質相關災情
-KEYWORDS = ["火災", "火警", "大火", "濃煙","空污", "空汙", "異味", "空氣品質", "失火", "臭味", "工廠大火", "工廠火災", "火燒山"]
+KEYWORDS = [
+    # 火災相關
+    "火災", "火警", "大火", "濃煙", "失火", "工廠大火", "工廠火災", "火燒山",
+    # 空氣品質相關
+    "空污", "空汙", "異味", "空氣品質", "臭味",
+    "PM2.5", "PM10", "細懸浮微粒", "懸浮微粒",
+    "霾", "霧霾", "落塵",
+    "廢氣", "排放", "空品", "紫爆", "空污警報",
+    "臭氧", "二氧化硫", "一氧化碳",
+    # 空品警示狀態
+    "汙染物累積", "污染物累積",
+    "空氣品質欠佳",
+    "境外汙染", "境外污染",
+    "紅色警戒", "橘色警戒",
+]
 
 # 台灣過濾：確保新聞發生在台灣，排除常見的國外災情地區
 TAIWAN_COUNTIES = ["台北", "新北", "基隆", "桃園", "新竹", "苗栗", "台中", "彰化", "南投", "雲林", "嘉義", "台南", "高雄", "屏東", "宜蘭", "花蓮", "台東", "澎湖", "金門", "馬祖"]
-TAIWAN_KEYWORDS = TAIWAN_COUNTIES + ["台灣", "縣", "市", "區", "鄉", "鎮"]
+TAIWAN_KEYWORDS = TAIWAN_COUNTIES + ["台灣", "縣", "市", "區", "鄉", "鎮", "北部", "中部", "南部", "東部", "西部", "離島"]
 FOREIGN_KEYWORDS = ["中國", "美國", "日本", "韓國", "加州", "澳洲", "歐洲", "印尼", "印度", "俄羅斯", "烏克蘭", "加薩", "以色列", "國外", "世界", "國際"]
 
 # ── 方法一：規則層 ────────────────────────────────────────────────────────────
@@ -36,11 +48,19 @@ NON_REALTIME_EXCLUSIONS = [
 
 # 即時性正向提示詞（標題+摘要至少含一個，才視為即時事件）
 REALTIME_HINTS = [
-    "今", "昨", "今日", "昨日", "今天", "昨天", "明天",
+    # 時間詞
+    "今", "昨", "今日", "昨日", "今天", "昨天",
     "剛才", "剛剛", "凌晨", "上午", "下午", "深夜", "晚間",
+    # 火災即時詞
     "發生", "延燒", "竄火", "冒煙", "濃煙", "悶燒", "起火",
     "警消", "消防", "出動", "搶救", "現場", "撲滅", "灌救",
-    "民眾", "居民", "通報", "發現",
+    # 空氣品質即時詞
+    "超標", "紫爆", "不良", "預警", "警戒", "管制", "停工",
+    "紅害", "橘色", "空品不良", "空品惡化", "居民投訴",
+    "排放", "外洩", "飄散", "蔓延",
+    "亮紅燈", "亮橘燈", "來襲", "欠佳", "累積", "境外",
+    # 通報類
+    "民眾", "居民", "通報", "發現", "檢舉",
 ]
 
 def is_realtime_event(title: str, summary: str = "") -> bool:
@@ -197,10 +217,10 @@ def fetch_pts_news():
         
         # 檢查標題或摘要是否包含我們的關鍵字
         if any(keyword in title or keyword in summary for keyword in KEYWORDS):
-            
+
             if any(foreign in title for foreign in FOREIGN_KEYWORDS):
                 continue
-            if not any(tw_city in title for tw_city in TAIWAN_KEYWORDS):
+            if not any(tw_city in title or tw_city in summary for tw_city in TAIWAN_KEYWORDS):
                  continue
 
             # 方法一：規則層內容判斷
@@ -249,7 +269,7 @@ def fetch_yahoo_news():
             if any(keyword in title or keyword in summary for keyword in KEYWORDS):
                 if any(foreign in title for foreign in FOREIGN_KEYWORDS):
                     continue
-                if not any(tw_city in title for tw_city in TAIWAN_KEYWORDS):
+                if not any(tw_city in title or tw_city in summary for tw_city in TAIWAN_KEYWORDS):
                      continue
 
                 # 方法一：規則層內容判斷
