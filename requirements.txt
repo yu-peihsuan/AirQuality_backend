@@ -4,3 +4,7 @@ requests
 beautifulsoup4
 feedparser
 apscheduler
+openai
+chromadb
+tiktoken
+python-dotenv

@@ -1,0 +1,204 @@
+# rag/rag_engine.py
+# RAG 引擎：混合式檢索 + GPT-4o-mini 生成個人化空氣品質建議
+
+import os
+import math
+from openai import OpenAI
+from rag.embedder import query_knowledge_base
+from rag.health_rules import get_rule_by_aqi
+
+_client = OpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY", ""),
+    base_url="https://openrouter.ai/api/v1",
+)
+
+# ── 個人化建議 Prompt 模板 ──────────────────────────────────────────────────
+
+_ADVICE_PROMPT = """你是一個空氣品質健康顧問系統，請根據以下資訊，生成一段針對該用戶的**個人化、口語化、友善**的空氣品質建議。
+
+## 當前環境數據
+- 地點：{county}
+- AQI：{aqi}（{aqi_level}）
+- PM2.5：{pm25} µg/m³
+- 風速：{wind_speed} m/s，風向：{wind_direction}°
+- 附近污染事件：{event_description}
+
+## 用戶健康檔案
+- 年齡層：{age_group}
+- 是否孕婦：{is_pregnant}
+- 氣喘：{has_asthma}
+- 心血管疾病：{has_cardiovascular}
+- 過敏：{has_allergy}
+
+## 相關健康指引（參考資料）
+{retrieved_knowledge}
+
+## 輸出要求
+1. 以**繁體中文**回覆，語氣親切自然，像是朋友提醒。
+2. **直接給建議**，不要重複解釋 AQI 數值意義。
+3. 若 AQI 良好且無污染事件，給予正向鼓勵（適合外出運動等）。
+4. 若 AQI 超標或有污染事件，給出**具體、可執行**的防護建議。
+5. 特別考量用戶的健康狀況，給出個人化提醒。
+6. 長度控制在 **1~2 句話**，精簡有力，不要廢話。
+7. 不要用「根據健康指引」、「根據 WHO 建議」等制式開場白。"""
+
+
+def _describe_user_profile(profile: dict) -> dict:
+    """將健康檔案 dict 轉為可讀描述"""
+    age_map = {
+        "child": "孩童（12歲以下）",
+        "adult": "成人",
+        "elderly": "老年人（65歲以上）",
+    }
+    return {
+        "age_group": age_map.get(profile.get("age_group", "adult"), "成人"),
+        "is_pregnant": "是" if profile.get("is_pregnant") else "否",
+        "has_asthma": "是" if profile.get("has_asthma") else "否",
+        "has_cardiovascular": "是" if profile.get("has_cardiovascular") else "否",
+        "has_allergy": "是" if profile.get("has_allergy") else "否",
+    }
+
+
+def _build_query_text(aqi: int, profile: dict, event_description: str) -> str:
+    """組合 RAG 查詢語句，融合 AQI、用戶特徵與事件描述"""
+    parts = [f"AQI {aqi}"]
+
+    if profile.get("has_asthma"):
+        parts.append("氣喘患者")
+    if profile.get("has_cardiovascular"):
+        parts.append("心血管疾病")
+    if profile.get("is_pregnant"):
+        parts.append("孕婦")
+    if profile.get("age_group") == "child":
+        parts.append("孩童")
+    if profile.get("age_group") == "elderly":
+        parts.append("老年人")
+    if event_description and event_description != "無":
+        parts.append(event_description)
+
+    return " ".join(parts)
+
+
+def generate_advice(
+    county: str,
+    aqi: int,
+    pm25: float,
+    wind_speed: float,
+    wind_direction: float,
+    user_profile: dict,
+    event_description: str = "無",
+) -> dict:
+    """
+    核心 RAG 生成函式。
+    
+    Parameters:
+        county: 縣市名稱（用於顯示）
+        aqi: 當前 AQI 數值
+        pm25: PM2.5 濃度（µg/m³）
+        wind_speed: 風速（m/s）
+        wind_direction: 風向（度，0=北，90=東）
+        user_profile: 用戶健康檔案 dict
+        event_description: 附近污染事件描述（若有）
+
+    Returns:
+        dict with keys: advice, aqi_level, retrieved_rules, error
+    """
+    # 1. 取得 AQI 等級名稱
+    rule = get_rule_by_aqi(aqi)
+    aqi_level = rule["level"] if rule else "未知"
+
+    # 2. RAG 語意檢索：組合查詢語句並檢索最相關規則
+    query_text = _build_query_text(aqi, user_profile, event_description)
+
+    # 若有突發事件，額外查詢事件相關規則
+    retrieved = query_knowledge_base(query_text, n_results=3)
+
+    # 若有事件且是火災，強制加入火災規則
+    if "火災" in event_description or "濃煙" in event_description or "fire" in event_description.lower():
+        event_retrieved = query_knowledge_base("火災濃煙 fire smoke PM2.5", n_results=1)
+        for er in event_retrieved:
+            if er["id"] not in [r["id"] for r in retrieved]:
+                retrieved.append(er)
+
+    # 3. 整理檢索結果供 Prompt 使用
+    retrieved_texts = "\n".join(
+        [f"- {r['document'][:200]}" for r in retrieved]
+    )
+
+    # 4. 組合個人化 Prompt
+    profile_desc = _describe_user_profile(user_profile)
+    prompt = _ADVICE_PROMPT.format(
+        county=county,
+        aqi=aqi,
+        aqi_level=aqi_level,
+        pm25=round(pm25, 1) if pm25 else "未知",
+        wind_speed=round(wind_speed, 1) if wind_speed else "未知",
+        wind_direction=round(wind_direction) if wind_direction else "未知",
+        event_description=event_description if event_description else "無",
+        retrieved_knowledge=retrieved_texts or "（無相關健康指引）",
+        **profile_desc,
+    )
+
+    # 5. 呼叫 LLM 生成建議
+    try:
+        response = _client.chat.completions.create(
+            model="openai/gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "你是空氣品質健康顧問，只以繁體中文回覆，語氣友善親切。",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            max_tokens=100,
+        )
+
+        advice = response.choices[0].message.content.strip()
+
+        return {
+            "advice": advice,
+            "aqi_level": aqi_level,
+            "retrieved_rules": [r["id"] for r in retrieved],
+            "error": None,
+        }
+
+    except Exception as e:
+        print(f"⚠️  RAG 生成失敗：{e}")
+        # Fallback：回傳基本建議
+        fallback = _fallback_advice(aqi, aqi_level, user_profile, event_description)
+        return {
+            "advice": fallback,
+            "aqi_level": aqi_level,
+            "retrieved_rules": [],
+            "error": str(e),
+        }
+
+
+def _fallback_advice(aqi: int, aqi_level: str, profile: dict, event_description: str) -> str:
+    """LLM 失敗時的基本規則建議（不依賴 API）"""
+    is_sensitive = any([
+        profile.get("has_asthma"),
+        profile.get("has_cardiovascular"),
+        profile.get("is_pregnant"),
+        profile.get("age_group") in ("child", "elderly"),
+    ])
+
+    if event_description and event_description != "無":
+        if is_sensitive:
+            return f"目前 {event_description}，空氣品質為{aqi_level}（AQI {aqi}）。考量您的健康狀況，建議立即關閉窗戶，暫停戶外活動，並備妥相關藥物。"
+        return f"目前 {event_description}，建議暫時避免戶外活動，必要時配戴 N95 口罩。"
+
+    if aqi <= 50:
+        return f"目前空氣品質良好（AQI {aqi}），非常適合户外活動，請盡情享受！"
+    elif aqi <= 100:
+        return f"目前空氣品質普通（AQI {aqi}），一般民眾可正常活動，敏感族群建議避免長時間激烈運動。"
+    elif aqi <= 150:
+        msg = f"目前空氣品質對敏感族群不健康（AQI {aqi}）。"
+        if is_sensitive:
+            msg += "考量您的健康狀況，建議減少戶外活動，外出時配戴口罩。"
+        else:
+            msg += "建議減少長時間在戶外激烈運動。"
+        return msg
+    else:
+        return f"目前空氣品質不佳（AQI {aqi}，{aqi_level}），建議所有人減少戶外活動，外出配戴 N95 口罩。"
