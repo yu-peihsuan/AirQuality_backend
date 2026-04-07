@@ -1,416 +1,407 @@
 [
     {
-        "source": "Yahoo新聞",
-        "region": "嘉義市",
-        "title": "嘉義重大火警「狂燒13戶」！窄巷如煉獄 已知1男臉、手重創",
+        "source": "公視新聞網PNN",
+        "region": "台中市中區",
+        "title": "台中民宅大火住戶皆獲救 婦一度無呼吸心跳成功救回",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMi2AJBVV95cUxQeEc2WWo3bGNiMDdaT3VHa1RIYlBVeV9LREpWYkdONm1FMUU2M3V0OG1EcDJ0SzZTTDlPNDZiZ2UwZW5POFhMaEVfeUE2Vl93dDllYWFhb1hrdlh6bFNQZEJSWlN4NDF6YldQV0JEY2toYjJNYXZmVWtpWkVXRnFnVmVBbjhQX1pXakhKRlVlYXQ5dHVyaTg1S3VkcDhoaHE2d2x1OFQ2UC1rbHdHVzk3WVlLb1VSYkpOR0dPLUxZRS14c005SmFCeTl6R2ljSE9EUnN1SWN4Z3NybktSTHdXeXE2YnZHeEduY05OR1FaTHdWQmFNWGgzNVBZODh3bUZwRUZlVGc2TDdNMFk3enhZY0xmbXdqU3BpOTN6Q3o3a0UyTWVnZ2hOdjdzWTF1NE9KUGNyUmtwUzdZZXNuQ0E2SFJMQmFHZkN0UGZZZ05ieXVHS2xoanNINg?oc=5",
-        "published_at": "Wed, 18 Mar 2026 23:43:07 GMT",
-        "timestamp": "2026-03-19T01:49:29.027140"
+        "url": "https://news.google.com/rss/articles/CBMiT0FVX3lxTE1kemZlaVhyb3JNWWVEM0ZTdVJpTUN0cVZScnhoNlZ4UkFxV2tSRWdzSUxRMnNxbDBpSXVGbnhVWl9LTmVKUGhrUUViY1d5S0U?oc=5",
+        "published_at": "Tue, 07 Apr 2026 07:30:06 GMT",
+        "timestamp": "2026-04-07T08:37:20.734574"
+    },
+    {
+        "source": "Yahoo新聞",
+        "region": "桃園市桃園區",
+        "title": "桃園大溪「木造家具工廠大火」！烈焰濃煙竄升驚險直擊",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMi3gJBVV95cUxQbTZpRUlSZGJhTkE3X1NEUzQyWHI5blpCSTVMQlNUbnFsSFpnSmp4MUtfUlY4UEJ1b0xqRmd1UFJSYU9SWjBrVU9IRW9rYlh6a2cxTmhUbVdyZkhlX0x2OEExRmYxcmc3eG9NVXRFMEtVdE9wYzhsX28yZTlMd0l5dEFDcWhaZ19kZFBobFdqRi1Ba1ZwS1IyUDJyYTRjNVkwYmd3Unl0dURxS2J5bFUxdkZVWDRnSS1ZejdIdmZUUmE3d3VVV1pMX1ZNT0RvbzBES2ZyS19SNGtzTDFEUWZ3TlRfbG1BM1JPclZzOWV6MkNHRTVNaG96V2g1dDhydkxTMEo1cng5Qm54V2NDTlRBRXhuUEE1SThhbTZlX2xCYmtmUFl5UW0yX1UycHIwYlBOVGFSQU5NUk9wMDAxS3psYVpZcEMtTlBRRDJYYXhJYjBGMVpIRVdIVXlvSnZkQQ?oc=5",
+        "published_at": "Mon, 06 Apr 2026 23:56:16 GMT",
+        "timestamp": "2026-04-07T08:37:20.734603"
     },
     {
         "source": "三立新聞網SETN.com",
-        "region": "嘉義市",
-        "title": "嘉義市恐怖火警！烈焰連吞13戶「1人灼傷送醫」2原因增加打火難度",
+        "region": "台中市中區",
+        "title": "台中凌晨惡火4人受困！10歲女童卡陽台呼救、6旬婦一度斷氣猛按CPR救回",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE9ZMXlLcjJTYzdwRGxtMUxpRkdRMDV4YUZqMGdsTGw4S3BkWkNzTUZfellmVURMenVHbnFSMDFja0NTMzY3SGNpbUVwd09zaEhOS25SSWRURmnSAV9BVV95cUxNZHZhajk1Sy1ycGZaOFAtVVc1Q2x5TUQzWjFMaktDZWtlbkxZZ2U5UGNnWmk3UnJWMnlPaUJpandyQUdxU3dxcWgxbXJGekJlSnh5SzFncXFvWFZ5cVNQVQ?oc=5",
-        "published_at": "Wed, 18 Mar 2026 23:39:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.027198"
+        "url": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE1hSEZqYU16N0lTWWFTa2g1ZjVRakF4SnprWEltcnJoYjBodS1fNlZQcUh6VXBCNFJTdGRfd09hcWJib3lwTUhRdk1iUkJpVU9td2lERzFDYUHSAV9BVV95cUxOb1hza1lVdUMxc21IaUQ0YUFGLTBwcnZjZ0hHeXlpQ0xkWm90aUNtRHU0cTN1aW8zSi14TTNsN2xQTHd2bHNhT2I2dlpZV0Y4LTcwb0V6cTBzdEJTb0lPUQ?oc=5",
+        "published_at": "Mon, 06 Apr 2026 22:02:00 GMT",
+        "timestamp": "2026-04-07T08:37:20.734626"
     },
     {
-        "source": "自由時報",
+        "source": "中央社 CNA",
+        "region": "台中市中區",
+        "title": "台中太平凌晨透天住宅火警4人嗆傷送醫| 社會",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE9lT1Fxcl9yYzlYaHZmVS1GMHphMEFPLW1pRHhCSEZxcks4MkFMbW1FUm9jNV9HazcwNWtFNUtJV3EzSHVCSC1nVFR6YVF4Q2l2NmFIRmtrMVk2N1ZWMHpn?oc=5",
+        "published_at": "Tue, 07 Apr 2026 00:26:00 GMT",
+        "timestamp": "2026-04-07T08:37:20.734641"
+    },
+    {
+        "source": "聯合新聞網",
+        "region": "澎湖縣馬公",
+        "title": "影／澎湖馬公、龍門連2貨輪火警 海勝一號、合茂輪起火",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE1vWEc2YkJGczVPMDhOTHhWb3hoSGFmUTdPNlVqREhuNmZ2M2xzUWJwWFA5SGJ0NXBQb2ZwTkNBREVrTndnLUhXY0w3bC1feS110gFWQVVfeXFMT1FzWm9Icmg5UG5qYk1MaWJxY0dSOTF1RmVMRWh6aVQ3M25vSVozRDJyQnFPSFNjWmtnazUtSmNibFNuZmxvMkY2ZDJESHdqMzVNTlJILVE?oc=5",
+        "published_at": "Tue, 07 Apr 2026 02:54:05 GMT",
+        "timestamp": "2026-04-07T08:37:20.734658"
+    },
+    {
+        "source": "桃園電子報",
+        "region": "台灣 (未指明特定縣市)",
+        "title": "桃消圳頂分隊逼真模擬倉儲火警 強化工廠自衛消防編組應變能力",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiTEFVX3lxTFBSUkFJVXV1d1kyUnhteE9HQ2pSLVpGTGVOUHBrQU5WbFhGWXBxd2lFVUYyRF9XMXpZNjJZMUp4eU5YSE5BOUpOcWVrZHY?oc=5",
+        "published_at": "Tue, 07 Apr 2026 03:39:06 GMT",
+        "timestamp": "2026-04-07T08:37:20.734781"
+    },
+    {
+        "source": "中央社 CNA",
+        "region": "新北市新莊區",
+        "title": "新北新莊工廠起火 警消：貯有化骨水外出戴口罩| 社會",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE1pRDgta29FejZFMzBFWlp2TTZwcUNGdlBjZUZINEhtWkJ1eW5KZG1ZYVplTXJRdlJyYThQUHFJQmgwTVBYR1dLODMxcEE5Tm56MWdhb1dGaXQyRnYtZXMw?oc=5",
+        "published_at": "Sun, 05 Apr 2026 12:47:00 GMT",
+        "timestamp": "2026-04-07T08:37:20.734813"
+    },
+    {
+        "source": "聯合新聞網",
         "region": "彰化縣彰化",
-        "title": "彰化工廠火警現場騎士摔車 消防員救災還救傷",
+        "title": "彰化社頭1機車行失火 老闆返鄉祭祖逃過火劫",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiakFVX3lxTE90TjFNbjNQdW5ZSzlnN2JvSURqMmVac3gwNy1sS0tUZXZqOTRwd0tTWjZvUG1XdGZyTmtTcEs2N0dKcFVUOVVpS0l0bzh3UXU1UU1vVTctLVBBTExRN0p3UnloZTRod0Z6UFHSAW9BVV95cUxNdUZ5aGd5STBwX3h4cWpBV09YbzB3TUxSUkczaHhhNE5OTW0weFliMDVNbFREcUdTY1dka0RCY0xJR2VFQm1QU3gta0laMXJ4YjEtUnBxdzE2bzZjSU5US3FoNm5OTHJ4UmItb05lQjg?oc=5",
-        "published_at": "Wed, 18 Mar 2026 12:54:17 GMT",
-        "timestamp": "2026-03-19T01:49:29.027216"
-    },
-    {
-        "source": "moea.gov.tw",
-        "region": "屏東縣屏東",
-        "title": "消防單位及環保單位就屏東林邊太陽能板儲料廠火警已進行火警原因及空汙監測 請各界安心",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQOXFnV1ZMUWhxeEtXVkhDeGhyY3g1bU1FOEZkZFYwcUN3MjUxTEVxbnhkRzc1NHBRV2NSU1M1RG1NN3VZTG9SeWhIYTh5TXFrSldlVzkzVEFibzRuVEdjaWJxR2xCV0ozTW43Q1pUakZod2lJNGJPaldva0syTVluYTVSd2FGOFVsR2liWUowQjc?oc=5",
-        "published_at": "Wed, 18 Mar 2026 12:14:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.027235"
-    },
-    {
-        "source": "公視新聞網PNN",
-        "region": "屏東縣屏東",
-        "title": "屏東林邊太陽能板火災 燃燒4小時、面積達8千平方米",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiT0FVX3lxTE5ha3k1bV9yaTB5MW9QUjVmeUYyMWNMVnEzSlBUdVh6cTR6S3JTazEwZXRURGtBbEN4d2dHaWVTSWhRbThXdzJ6Ni1lSEpZZ1k?oc=5",
-        "published_at": "Wed, 18 Mar 2026 00:04:29 GMT",
-        "timestamp": "2026-03-19T01:49:29.027251"
-    },
-    {
-        "source": "聯合新聞網",
-        "region": "屏東縣屏東",
-        "title": "屏東光電板儲料廠火警經濟部：空汙監測無重大汙染擴散| 財經焦點| 產經",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTFAwQTBjMVNOMFFEQktSTk01STBBbjhZeU96M1FNeFl5WmR0S0RkM3U0eFFPd09fRkRGRzdkbzVqclZEOS1Oc0tlN0htaHd5U1ZN?oc=5",
-        "published_at": "Wed, 18 Mar 2026 13:20:41 GMT",
-        "timestamp": "2026-03-19T01:49:29.027273"
+        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE1OS0Y0bDMySjRIc180WnVJYjI5dUNVTkVfTmtvdHAxd2JjRklfbXRHTktFSWcxa2NYLUY0OVNZaklmODZqMkJpanBjN09WWF9B0gFWQVVfeXFMTUxxYUNaY0xQQVpaYTRaSFA0UlF6cGltSm8xTzN4eHBtQ3YyazJsNzRQbnY1alVsSV9DM3BUQWVlMHZYYUU0RFBTb19YbE83SUF2Vk41WEE?oc=5",
+        "published_at": "Sat, 04 Apr 2026 04:50:20 GMT",
+        "timestamp": "2026-04-07T08:37:20.734827"
     },
     {
         "source": "中央社 CNA",
-        "region": "新竹市",
-        "title": "新竹市竹園超高壓變電所火警再增1死檢警勘查釐清肇因| 地方",
+        "region": "澎湖縣",
+        "title": "澎湖龍門尖山碼頭貨輪失火及時撲滅| 地方",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTFAxYmNtN3JwdV9ELXpHak9vY3VadF9yekhTWTIzS3pSdkdlOGpBdFFyMkJ5WF9EQkNfOFJzTlAxUDl2MHBZanpKNFlGZkE1Q3dKWktmSzc0WVRlSFFqS1Nv?oc=5",
-        "published_at": "Tue, 17 Mar 2026 09:50:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.027295"
+        "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTFBKVTFBNldwR1JJbjA5TWpydFV6M2FzeGZIMndSWnAwTk9aNkZOS3lQRHBiVko4VXk0dEo0U2pBU3VlSmtheEZwYjV0YllWRXNSLU1wSy1VWWpBUmd0WlpF?oc=5",
+        "published_at": "Tue, 07 Apr 2026 02:24:00 GMT",
+        "timestamp": "2026-04-07T08:37:20.734863"
+    },
+    {
+        "source": "Yahoo新聞",
+        "region": "台中市中市",
+        "title": "台中市太平區住宅火災 4人送醫無生命危險",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMirgJBVV95cUxObHJHdE01b29heFZRcFNubTJZQ3poX2ZwYUE5N09NMHY3QzZzdElkVndlOFhFdmFqSng4bWk3Nkk1d0lRWlh3eXV1MGEwa3RnMWl0TnVSTm1UZU5WanhTM0VZOS1LVEt1M3Z3Z0VoY29Tc1hLc3Vxa1dhMTRmTUFfZlFmTTl0Q0FGTXlwSlZla3JKaS0wekl0bWVMREJNclZyeHdpN2hLSjFPSk5UZ1lCLWg5b0FEc3Q2UE1CRUJsa0Z4V1pqRFVJdDVfTDBUYTEtbGJHSHdKQU5oUTZEbnpFRTdoMENTWlpQdUF5eDZaWGdNSGE5WXVKcFpxTWFMV0w1eHBIeVpHOGhWSlRGWmdDYnY5RGRqMW5uOTB6TmNJZndSNWlpdXJlaGFIS3hJQQ?oc=5",
+        "published_at": "Tue, 07 Apr 2026 03:52:43 GMT",
+        "timestamp": "2026-04-07T08:37:20.734890"
+    },
+    {
+        "source": "Yahoo新聞",
+        "region": "台中市中區",
+        "title": "台中太平凌晨透天住宅火警 警消到場救援 (圖)",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiugJBVV95cUxOOTdpSmdCZ0FuOGF5ZkIyT2RJTXpsMnVDbzhwN2JhTFJ2OGJwNGs2bHpySmx1LUNKRWxnSjdlZS1NU0ZKRDg0SnZ4UVI5MVZtLU1xRGlRclVaaTJoblZxUlZ4STFJWlh2YTBnVUJ0aTFvMkxHS2tJd0t3eEFjMUVCNWJkcmROaGhEM180LTM1ekQ5a2plemg2eXY3Ymh0ZnpCeHhUYWNlQXVxSDNHUEw0X3RyRFVEVVgyeEtxcmFFVzFJTGFYcjE1RVRxakI3Nklnd1hNMHI0Uml6Z29waVFpU3RSN1RyS2hWc09SbjhwZmVKc2xtckZ4blFWcGhZcFJ0Tk14UEtjU0dwbkt0cGU1S1NJSnNhQnYwNTBxSkhxcFJ1WFFsVUxsT3ZXWk1wcE9aWWNwVjRDN1lhQQ?oc=5",
+        "published_at": "Tue, 07 Apr 2026 00:41:55 GMT",
+        "timestamp": "2026-04-07T08:37:20.734912"
+    },
+    {
+        "source": "chepb.gov.tw",
+        "region": "彰化縣彰化",
+        "title": "(★★★) 彰化縣福興工業區工廠火災，提醒福興鄉、埔鹽鄉及溪湖鎮等下風區域民眾緊閉門窗避免外出，並加強個人防護!_最新消息",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMibkFVX3lxTE80ZjRtQWlnc096RUhWOFJFSXVfNDlSNlhydklJY0doV0VHYnpfckVNYWRzSmVKbWtGbW81WGdGV2YybUt4cHFINHlHS2hYdkI2dFdxOURseEczUGZoNFZXLTlDeDBHQklqaWtxNzln?oc=5",
+        "published_at": "Wed, 01 Apr 2026 07:08:14 GMT",
+        "timestamp": "2026-04-07T08:37:20.734927"
+    },
+    {
+        "source": "聯合新聞網",
+        "region": "桃園市平區",
+        "title": "中市太平透天屋凌晨火警 一家三代4送醫女童驚險獲救",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE9XMllfd3NaMExZNXMxNk1Nd3ZnMldSSGN1MlJoYTdCVXFLRmtsUGIxcTJRaXBINzluT19wZmhlTjlxeTRmUzk4Zk1hSWRUbVNM0gFWQVVfeXFMTW9qUkh3c3Fic3k2emNHXzM5SUZETVNJVlRpWFA1bnV1ejlyZFJ0bXhFRlNWRURTcjhrMzM3TDJNbmpvSGktOEttZjJUUjVyNWoyNmFNQlE?oc=5",
+        "published_at": "Tue, 07 Apr 2026 01:03:03 GMT",
+        "timestamp": "2026-04-07T08:37:20.734977"
+    },
+    {
+        "source": "Yahoo新聞",
+        "region": "新竹市",
+        "title": "快訊／連假2日毀了！大火狂燒新竹「300坪廠房」 數公里外驚見黑煙竄天",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMilgNBVV95cUxNV1pkVzhCR2pCMy1rVUsyeDRqcmdDQU02cDJ1WTFkVzl4QlhUS0tST0FrQ244c1FyVExud3NkUkt6ZlplTl9BajN3WmZwWUVEX0RKOUlqSTlTODRFdmxLUzBUczBObGN5TlFMQTBmdXkxQk1kdmNmNHZhSTdnNEZPUldXMjN0RU4wam1PU2hqd0NKeUdNWlVGMmM4Q210bktjY2J6RzNUdWU2VlR0STlCbHhPNndNa0M0aUU2bndNbGtpZ2FUczhrOG9uaU03VmE0QlZ4TW1VckhWOUM3dkxWYktlUl9HSW1CNTZKR0RJOG9HekMtZGxxUHdSazNHcWpGQjgwZWNLbTVLX2ppbGJDNkpXQU1kaTFKU0hnQllVYmtnTVJQajZuYnhEQm82NzdMMFlXcUNIQnJnNlRMV2hVejYzMW9kN3B5N2p3dThHLVlnUVJxUWh2a01HNVR3bFFfcEVsTDgyR0VIVm5mVGFlNmJITl9Hakw2M1JuQmN2VFJLdUh4aEhoM3YtNFJ4TzNvR21PQjNB?oc=5",
+        "published_at": "Sat, 04 Apr 2026 01:49:23 GMT",
+        "timestamp": "2026-04-07T08:37:20.734993"
+    },
+    {
+        "source": "聯合新聞網",
+        "region": "台中市中區",
+        "title": "清明連假次日火警！竹市鐵皮屋火勢猛烈 消防員灌救中",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE00YWdnZTk5QjRLN2lZM2V6UVRQcGs0YmkyaXE3UEkxaWRlRTlIYU1TM1RKczhkSDhDWmRCTDV0WkRROTN2RGRGWGZLRnJRaW5R0gFWQVVfeXFMTUMxem5qZ2cwUThIcldPTHFVUjFGYVhQQmduQ3pzWWs3cUdBYzc5SGhCc1dZMzBDSW1pQkwwTk0xMXl2OTNpd1NyemZNbDdSRHllc2JjRmc?oc=5",
+        "published_at": "Fri, 03 Apr 2026 23:27:26 GMT",
+        "timestamp": "2026-04-07T08:37:20.735049"
+    },
+    {
+        "source": "中央社 CNA",
+        "region": "高雄市小港區",
+        "title": "高雄小港大林煉油廠火災灌救中陳其邁籲市民關門窗少外出| 社會",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTFA2bzk5R2tYT3J5d1NzcmN2YjZSOFVjZ0dodVZsMTRBV1VnczVjYmxEenNJWkJGaTVmbGlpTnItVjRvRzF0cTZPaFpXVjZraG9kRDAtU0tNY1dJT0ZIalNr?oc=5",
+        "published_at": "Fri, 03 Apr 2026 07:37:00 GMT",
+        "timestamp": "2026-04-07T08:37:20.735067"
+    },
+    {
+        "source": "LINE TODAY",
+        "region": "澎湖縣",
+        "title": "澎湖龍門港貨船火警 延燒三層船艙幸無傷亡 | 中華日報",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiVkFVX3lxTFBFVXlCcEZfN0xsN2ZpN1NQUnRsVXNVWDRtaTlyNVNZbzEtMklWdkxScFBUU0VFblZ4bkE2Z2xoRl9VeEVLT09kUmhIYVV0ak5UOGI5ZnZR?oc=5",
+        "published_at": "Tue, 07 Apr 2026 02:48:45 GMT",
+        "timestamp": "2026-04-07T08:37:20.735124"
+    },
+    {
+        "source": "聯合新聞網",
+        "region": "宜蘭縣宜蘭",
+        "title": "廠房陷入火海！宜蘭五結工廠火警 傳陣陣鋼瓶爆炸聲響",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE5wQ0FIT3JMbzR2U3c1cjdhRmRxZUNlMVA0ZFhmQ01Nb3JRVE01Sm1LbGhpOVRfT3hIX3hKbkt5SmVRUTZVRXhpa1VEZUZ2SFNy0gFWQVVfeXFMUHJDX3FDcXAwTmRsTzdHQ3NRbUw0Vldyb2RsTVduSl82NW16YUI0R211UVBEZU1uYkJQRWdoeXNBSXpjajFkVmQwSUQtNThodzBRVFg0OWc?oc=5",
+        "published_at": "Fri, 03 Apr 2026 12:25:16 GMT",
+        "timestamp": "2026-04-07T08:37:20.735154"
+    },
+    {
+        "source": "聯合新聞網",
+        "region": "高雄市",
+        "title": "影／高雄大學特區回收場火警 濃煙竄升路人吃驚",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE5heTloeFItLTJsVWkxNFBHQS00ekVBVGFYUUhjcTd0TFVTR1BGMmJLZVJMX0JmR3FfWGVSbXlKbkhUQWRfendSYkY3cjlDU0ZK0gFWQVVfeXFMUEVBNGRJNDBic0s1WUZRUncwQlpEMEY4b1Y1UHJ3OUhKaC1UVF9wSzNXSnhEUG1xX0hhbFhKM1pTVkpoWEMyVXRocWdyVDJBOGpLVENFYVE?oc=5",
+        "published_at": "Fri, 03 Apr 2026 06:25:01 GMT",
+        "timestamp": "2026-04-07T08:37:20.735180"
+    },
+    {
+        "source": "Yahoo新聞",
+        "region": "高雄市前鎮",
+        "title": "高雄小港煉油廠大火灌救中 市府籲前鎮、鳳山等八區緊閉門窗勿外出",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMivANBVV95cUxNeXVaaEVZQl9XUVlxQmxvdXRfTG5EaklsNkhMaDlBTENqTEJBd3FEMkwwZXAtS2xFcE9kbEZsYy1GS1lKa1hsaFFRcHI2d25BRG9nSkN6MEtmRmt5V3hBMlhyLXZQeXRmWVJVXzlOLXQtbHZsazdoR2NmdkpXRVo5OHI0YzZTcGs3bGdVMXd2T3VuY3JIQWxsYmgzWXFvaHY3SVR0Q1JUQ19tbGRyaGREX2laNmRXMDdzS2dHM1pRbjAtNVJ6VEhkVGZ0M3hXWDRGMXZXaXRDVktkZHlJZ2ZZUUo1SFg0eHFVb1pSQ01QazUxQm9OMG5udnFhSlVNWjgyRHVhRVczVU9INDd0dE9LWUZfR0NiU0dDY3hQUmI4M0xkUWp6MVJRamV3d192ZGJzMl8yWkdRQ21iOHNNRHB2X0VZZlpHS1o1emhqYkZDdnRmOE84RVVsTlljMzZKanpvTG1xWUEtcEFONlhmUDVWZG1MRGVWOWQzR0llZFJxRFo1aHVzU1VWQmE3V09XcEtQZVNMaGtldXFTdlFSLU5MV0dHNkdUSC1scUtVUjhldFJqWC13czZ5dl80RVQ?oc=5",
+        "published_at": "Fri, 03 Apr 2026 07:36:25 GMT",
+        "timestamp": "2026-04-07T08:37:20.735195"
+    },
+    {
+        "source": "Yahoo新聞",
+        "region": "澎湖縣",
+        "title": "澎湖龍門尖山碼頭 貨輪失火及時撲滅（2） (圖)",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMipAJBVV95cUxPWUtyV3dnSU5FamxnQXZMdXJ0cy1WRGl1RHFJT3R2Sy1XMFk3eEdob1FyaHhYWGpqVWRSTkZvWWg4Vmw2eldub2xVRUNXR29INTlmMVYzWEtNZzl4bnRsUVRoWk1NMENQbGpja2x5bVpMMldQYjI4SEhXaktNVmpLT2RPM192TDJyN1BFZWlrRWhCVTBTUmxWV3FhWVViZFl3NW44REdNSV9aTTdBN1Y5bUVfTEI5V0V5eGpqVDVvNWFsN05oWlozcDlNX21rX0Vfb0Q0R09NWl9tYU1hYmdLSlBNMEpzX0dGam9pcE9Tc09rZTlrQm1XZUJXcGxKYWduTGJXTTNVY2RGU3UyX2w5LTBsUGliVC01b2RZbm05ODFSblFk?oc=5",
+        "published_at": "Tue, 07 Apr 2026 03:00:38 GMT",
+        "timestamp": "2026-04-07T08:37:20.735210"
+    },
+    {
+        "source": "facebook.com",
+        "region": "新北市新莊區",
+        "title": "【快訊／快關窗！新莊工廠失火黑煙沖天 內部存大量化骨水】 （圖／翻攝自新北消防發爾麵）",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiggRBVV95cUxQdkR3cmt2MHV5ekwxRGlVTkl5T2ZjWFdKbDhtZXBHbGpJRUpNTzZrS21sWTluREhESG9WQ3ZLNUQ0Rk5iaU5FMnFndzhESGVSZ2xiUUFpd0k3V1FjM3Uxek5CVkp5TlRCZWpRckR2ME1CUldXMURFVEtjckE5bFBaYVdEZ0VTWTBHVUs0VUlsWXdWVHpPTndyMWNVTkxVLWdRM0FXZm5fNzNsaGhHeUxnQ0dwdGRWaVl5WDFuU3h6dWJaa1FqMDZ5Wkg5TkE3T1JYeEp1dEdQSXNDM2xUbFBxWkpGZjVBVUVMNjFYaHpITXBFSnh4YUJzSjctT3Jra0dQaUVGbXlUOHlzdFZQRXF0NUNBN0JnV29oRGlqUnM1akJuSnhRelpHQ0plUHh4U2lRdElLdklGRkM3bGZ0Tl9Pd3dJY1U2eFpVemNwQWlQQXFHcjBXRXdmQWFVcElPd0xVQnpKblZ4dmEyQ3o4eHhUV1pUbllTRlpVakNZOThfQk1hNGVBX0UzVEt2dlJrMk50Ql9lUVVxSVVXZU5qRHNDOE05QU1xRFZOZElXdi1mclFNY29VcWZ1TDgyYWJxNUhjRDd2bkRTeGVMNEdISHdKenZDWW9CZVdmRFQta19aYnN6SEVuNTZTQkp2c0lxRjJ4OU9mT3VHUWlCSWg1T19GWXl3?oc=5",
+        "published_at": "Sun, 05 Apr 2026 11:36:03 GMT",
+        "timestamp": "2026-04-07T08:37:20.735231"
+    },
+    {
+        "source": "聯合新聞網",
+        "region": "台北市松山區",
+        "title": "3樓病房起火！北市三軍總醫院松山分院火警警消趕赴現場| 社會萬象| 社會",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE5FU1pkYXJkYm15c2xvMzhfZUhTdVVsWXZjTXhaaUpDNzZIbFpkRUtudWtjcXhjZjJUTlZlSS1iNVA5R20wWVlVcVo5SEx1LXBX?oc=5",
+        "published_at": "Fri, 03 Apr 2026 11:43:30 GMT",
+        "timestamp": "2026-04-07T08:37:20.735251"
+    },
+    {
+        "source": "Yahoo新聞",
+        "region": "彰化縣彰化",
+        "title": "彰化社頭機車行清晨大火 鄰宅受波及幸無傷亡",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMixAJBVV95cUxQdzZwSnNaWTF2VE9Bcm1UaDcteE5IOUFieVl3VFRPTnF4SXM0ZkdGOGU0bmVybnJCT0NYY0ZGZ0FCcGJNamdfWEVVaXc0bElNcGUtdFg5T2Y2S0NhY05RczRtWE9PeC1MbGpsT0ZkTmZ4Nl9acnJvbGxhQnNwUlZPRUV4RkhYQmxMdkFQajhtLU9XemdYeHlHeVRvV2xUVDdaVzJtektjLUhqVjZRWlpJbzJDczVCTFlHV3JHZFhORE1zQnYxLTB0QUk5bWZlSEc5SEUxZHd6UlFKTTZNaWtXRGZnd0UwM1hMOWZWSnNTTTMySFJ2OU1uMjA1Y3htVS1CclpxODdwREcwWkNwUUVDOWtleFJhQTdicVVTTkNiZ3ppSnFWOExBR1ZNLUkzRFFsN0pZTHg5RF9KbDZ6VW1QOGhMM1U?oc=5",
+        "published_at": "Sat, 04 Apr 2026 09:05:02 GMT",
+        "timestamp": "2026-04-07T08:37:20.735304"
     },
     {
         "source": "自由時報",
-        "region": "基隆市",
-        "title": "基隆民宅傍晚傳火警幸無人受困 西定路癱瘓大塞車",
+        "region": "高雄市",
+        "title": "空拍影像曝！中油高雄大林廠火警 消防局罕見撂重話",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE9LcmZHWXlUV2JjamZNWk81MXIycE11MXFzM0hrTHNuMHM4NS1YSmJ1UnhyZFppSkhobWNaS2xZbXhmaGw0QVZ4T1NKSGVHcEI4dERUeS1wUGpFSF9lMnVMc0RyY3FkUkFx0gFuQVVfeXFMUEpKRGo4Q3lZTC1sM0dJTVBLWUd2cVkxTXh3Y1JfUEY3cWI5S3dMci1ReHdoUUM1X1AtTXF0X2NBaV9YMnFIVEd3NGpuVVo4eDhNdmZHc0JUenJNNURRQWg0ZG01Vndmc3ZXa2F6SkE?oc=5",
-        "published_at": "Wed, 18 Mar 2026 10:58:01 GMT",
-        "timestamp": "2026-03-19T01:49:29.027310"
+        "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTFBrOTYtdFN3MF9PODU1MzBMLUFza0plRlREQVVIb1BRZHp0UUx1dkZJLWY1dzVZU0kxUG1tYWlHVEVncjRWUFNxWXFuUmgxOGlMQmVwWjBjMmhhaWoweEFCanVkeUxCbmpV0gFuQVVfeXFMUFEwd2ZNUG1RZVpHX0M3MXA4OWNKanpZbFYyd3c5Rm5DamR6UVI5aFpHOGJMeDIwSmdRY2tTZ3BTbTZ1TzhmbnRwVUZhX25Ya0xDY19BVnpkTmJsTEhTemFVQmw4Sm92X1JMWGFOM3c?oc=5",
+        "published_at": "Fri, 03 Apr 2026 11:23:29 GMT",
+        "timestamp": "2026-04-07T08:37:20.735326"
     },
     {
-        "source": "聯合新聞網",
-        "region": "屏東縣屏東",
-        "title": "火滅1小時又冒煙！屏東太陽能板大火 周春米：徹查原因必要時重罰",
+        "source": "Yahoo新聞",
+        "region": "宜蘭縣宜蘭",
+        "title": "工廠變成地獄！宜蘭鋁窗廠驚傳大火燃燒 老闆吃飯回來上百萬飛了",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE1XdmlvMDhGZ2xWS1l0OG9JWGJraXVWUnZKaWplcFJtZlZSeHpYR3kxdm96WkFWdDZycGJla1BrMGlTZFhCd01sSVdMOG1qZFFp0gFWQVVfeXFMTmVlZm1TaFJ4dkJPZjhtdGszdTRQVTE5NHdPQVgwVEo2TFU2MnJkZEdzNXJTcG4yRVZDQmtDQnJoTDdTdFgtN1kyc3o2QkxSMzhWanpSRXc?oc=5",
-        "published_at": "Wed, 18 Mar 2026 00:24:51 GMT",
-        "timestamp": "2026-03-19T01:49:29.027324"
+        "url": "https://news.google.com/rss/articles/CBMipgNBVV95cUxQSHgtbS0wNU4wUnZRcFlXZVBSbks1Rm1vMUZlQ2Y3d1VLWXJpQTUtUjJYWV9mMW44c19UQWtlclBjbl9xaERSQVFneFBSdVBjbmdRX1Fub2l0ZzZPZEZkSjc1Y2tsa3pWcDRBRDhxTjdlS0R2MGg0U0VINWFzaGZzdVJrYUVjb0dIaG5DYnEyQUEzOUc3d1h1NHlkYk1MdGhlRE0zZkFSTkIxVXpOMTFkWG1pS1hRQjNqV1ZNZ3l6VE9BLXNDTTBocDV1T0FhM1cxbHhsSDBFYXJVQ0prSDVIM25rbnV5X1JZSV9NOHNNNW9XdXZzcFhiZG9CU25nenM2THQ5SWZZeTRKY3daS21jNW8zMk9LejE4elNkRzZwZW52elBJZ1Zrak5TNjNHdnBNbW9JTTBYdng4RVVUZ2lENXpaVU5pTTBtWDJkVWZPZ0tBSGlIV25aZ2Y2eXp6ekxTeG10dzBUSGpBcVEwUENVZkNESnd2Q19lbmdpTEItd09kYmFpV3VNc1Fib2tYRFZiUEQzYXBFYUJoUUxFQ0ZzdVhlQ1czdw?oc=5",
+        "published_at": "Fri, 03 Apr 2026 13:34:57 GMT",
+        "timestamp": "2026-04-07T08:37:20.735352"
     },
     {
-        "source": "中央社 CNA",
+        "source": "ETtoday新聞雲",
         "region": "台中市中區",
-        "title": "台中沙鹿第九公墓火警里民揪可疑人警方調查釐清| 社會",
+        "title": "快訊／台中火警4傷「10歲女趴陽台呼救」 嬤一度命危",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTFBabVNJN1FYTGRUbl9BT2VtV3oxNHpmWGxmUFhPMkhBZGRBTFppMjlTZUhmN2w3NWJYZXU0VXlQQkRhMzc5LVA0TVpnbHRqbEE2czQ4b3lhc0V2Mm43cVd3?oc=5",
-        "published_at": "Wed, 18 Mar 2026 10:19:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.027340"
+        "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE1zMlhHbDZLZlg2VzB5cG9PZm5nRjZQelNpdUVCbUp6dklXTm9uamhMaHVRdTFXMnZQZzZ6blk1VlU2ZTk3azBfUFlRTmhJZlJ5RG1uOGZqYmJrMnZOcmc?oc=5",
+        "published_at": "Mon, 06 Apr 2026 23:55:00 GMT",
+        "timestamp": "2026-04-07T08:37:20.735408"
     },
     {
-        "source": "Yahoo新聞",
-        "region": "屏東縣屏東",
-        "title": "屏東太陽能板火警燒不停！滅了又復燃 周春米撂話：管理不當就重罰",
+        "source": "蕃新聞",
+        "region": "台灣 (未指明特定縣市)",
+        "title": "竹市舉辦加油站油氣回收宣導會 強化業者自主管理守護空氣品質",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMipwNBVV95cUxQRXVSU0FGbm5rSS1Pbk9BMC1BSjlkT0lpV2RrUlp6WlhTZ2t1QjJINmh0YnROeTdNQU5RTjRueE52cEh4aGFiOWI3Q3prN3NONzVFTUM5dmIzRjJSdWFXUUhpQVJvc2JybHNJRGJRMk1CSHYwVDVZV055WmhpWXBiTmhSbE10QnQtUVJ6eUFJbElDaWlNd01VQ3FsMFdHQjh2XzRXYXNjWFNKcmpBamMtVVBfNXNXeE0ydHhzbEZOTzJNbG9fV3ZwWkMwNm84UXgtYUdSd0M2bFAzbG9NWVIxOXhwY1FDSS1tRWdlb1VwZnNLenF3M0Fqb0pKajdtXzlRUGpfakRpdlJBdXFnQ1FVMDRlRGZ3bDEyamhmcmFJU05VUVZFdi1CMTVpUUZjR0lzell4U3AwMHNYUks2WFB1dmd0MGxNU2xaRzlmR0d2T0Zjblk4S0pJa3lqS2NnaG1Vc3FzcTItUFZJTklUTEtKR0FXbmFGLXBuakhDMnpkWlFnRml1N2VtbUNQVFFhbEx2Nzc2bml0THo0NjBsTUpnLXVPeFJ4UnM?oc=5",
-        "published_at": "Wed, 18 Mar 2026 03:37:19 GMT",
-        "timestamp": "2026-03-19T01:49:29.027354"
+        "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFBLRlhST2JIMlhtZGRkT0lNcmxxZndKQTZESG4xQkkwb3ZMTWhmajF3SEZ2ejZ4LWtmeW5aSk1YSVJhOUpITllqQzI4Ymt2R3ZENlE?oc=5",
+        "published_at": "Tue, 07 Apr 2026 06:28:00 GMT",
+        "timestamp": "2026-04-07T08:37:20.735572"
     },
     {
-        "source": "Yahoo新聞",
-        "region": "屏東縣屏東",
-        "title": "慎入！屏東林邊置料廠失火 黑煙狂竄駭人景象曝",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMijwNBVV95cUxNYkkzMXFxOVBuWEx2VV94MlpEUHZvNzNmam90aEotck1ReGo5Ukt5WmZ0OEtfdTQ4LTIyMUIxdS13NmJsRFJEeTJhbnphY0QxaEM0T2Fuci1HSHNtZTJhWk9aaTFuR2IwZVotVzNncVh3LWNwOEFFamlDSi04Yl9ZOUxDczRVaDZ2WFE0ZldJMDZ1Z2piYzcyR0dvVTk0TEdrNHdSWFdTZlMtNnhCY0ljNE5Sa0c0clBaU1l4M05hMDlHaEx3cmJudTZSQ1QxTnB1Vl9yRDhpYUlGWnN6R1pVQU93OW5Va25ZQjlnU3JpMkllVE9BSjBmUDRIMmg4MERDcnlqa1lGTnZnR3BJNS1Zb3VBUl9idjdZT2p5WWx4OU9vaUFCc2l0a1dwMTVRcE9CeFFtaHM0d1JTQVVPa0Z3Y3VqTngxV2xidkloN1BCYmlhUTJpdktYVTg0cjZkVzZlTUNLWjMxNUwzOE0wTDZSNmFGSGlWM2xlM0NZY2JBZGtVUUdkV1RUTWZUeTRyOVk?oc=5",
-        "published_at": "Tue, 17 Mar 2026 08:44:10 GMT",
-        "timestamp": "2026-03-19T01:49:29.027383"
-    },
-    {
-        "source": "聯合新聞網",
+        "source": "環境部新聞專區",
         "region": "台中市中區",
-        "title": "台中2天75起雜草、墓地火警消防疲於奔命| 社會萬象| 社會",
+        "title": "恐有境外空污移入 掃墓慎防火警 中央與地方提前因應",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTFBselhlaTYtekhkbGxObk1zY18tRFpWZWhGYTd1QzMyQlBZcnZKcy1yRmloWk9SeGFoQ2UtM293aWxhYlV1cUc1OV9kcVZ6RXNo?oc=5",
-        "published_at": "Mon, 16 Mar 2026 02:54:02 GMT",
-        "timestamp": "2026-03-19T01:49:29.027430"
+        "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOSENnT1FWNVVPMFMxdVRNVFpNSU9NYjlXbjZqTDVfSmEtWjNzNDEtWjQ0VEVYTVQzTk1sSW9EU050dGsyM05MUFh3U084Y0tEbVBhc2ZYSF9SZzJ2Z0RvMFMtdlNmSi1vVERBSkFZdmhwM0ZzX2pSajdTVHBoZWdvM0hBUEZkbmhuX3FlVUln?oc=5",
+        "published_at": "Wed, 01 Apr 2026 09:20:08 GMT",
+        "timestamp": "2026-04-07T08:37:20.735646"
     },
     {
-        "source": "Yahoo股市",
-        "region": "新竹市",
-        "title": "竹科火災衝擊台積電？ 公司：目前供電正常",
+        "source": "kcg.gov.tw",
+        "region": "高雄市小港區",
+        "title": "小港區工廠火警產生黑煙環保局依法裁處並持續監控空氣品質",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiwAJBVV95cUxQS1lSVGF2MzUwbTZzck5Sc2pkYUhoejRSWkNQYVVmdHRuSjhXdlNiT0w1enVSNUdaR0ZkNzE2OG9ybVkzbi0xTW51M2l3R18xdVpqX3R0MUJWNUxYN0hqTG1pUUloaEJVWHB1Ty0yZWU3LVhsc3pJMEJtNjNHOFBMY25EakpVUHBWR2N6RG9DSlpFamV5eHV3dXhHa0JlV19PSVpYTFJUN0FuZGRWLXU1WFlhY0JLcHV4eFdqSDRNcUFwQkZjUjJqY0E3SnluNGUxdVZrSHBENVdoenVjS3B3aFpZVGJJbUlpMDBSbGtXemp0N2ZMQlBveERDZF91YjlmQ2l4dWd5SHNjakJXUnJLTnBuVXhnVVZiMlN0Q0MtZXFYTURSckVmLTJiUTZTb3d4SDJXUFdhdmFLTjdZc0Qzbw?oc=5",
-        "published_at": "Mon, 16 Mar 2026 08:53:20 GMT",
-        "timestamp": "2026-03-19T01:49:29.027442"
+        "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxNTE0xaTh2QVpVMkVsZHRHVm9XdjItUEJwRW51anJmVlp3REFEMzZvNlZKbGk1TlRROVJfV0xnY0tTZmhIVVlYcThZZzlOQUV3eGNzM2Z6ZmdZSTVFTlZzaTdxcHpoODVMVDFHNjRkdE9YX0NRQWFCNWxqZ01WdHBEQlVnMTE?oc=5",
+        "published_at": "Fri, 03 Apr 2026 15:25:51 GMT",
+        "timestamp": "2026-04-07T08:37:20.735740"
     },
     {
         "source": "Yahoo新聞",
-        "region": "屏東縣屏東",
-        "title": "屏東林邊太陽能材料場火警延燒2公頃 幸無人傷亡",
+        "region": "高雄市燕巢區",
+        "title": "燕巢山區火警消防全力撲滅 籲清明掃墓落實「四不一要」",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMi0gJBVV95cUxQWEdLQzRxX253VlpNMVllUGU0LUdVUUVGTWFhdjloS18yclRUc0cxa2NacDVXS0o3REl2YTcyaUFjR2Y5T0o4Y2w4b0dULWRLTHprNFNleHBSSENTWlZUYXcyeTVSc2RwbGt4X3VHMjZNb3Z2NENXZWktMUlBSHJ0bFp4RUpaWktwT2RvTG9UakJpNzhNOG1QZmtRX3p0ZndRdlp2a2lRaXVXckZBaWNLQkNpM2IzLTVzUUVXbVBQQ3M2MUgxX1lCWHdOdmZQSU9NMVlIUGRDczhEZEZsYnJLLXhUeVBzSnczd19raXRYMlpGT2NIYXFOcUhUZ3JveTlkRUd4VHhubjcyYXMway0tRThrMVFHMFJVb1dvWUtjbzFJTXBkT3MxWXRrTFFOcnFHVGhkRnZhdFFudGZDUlpzVU43RWtNNUFoeG9ZWG9YSWJqUQ?oc=5",
-        "published_at": "Tue, 17 Mar 2026 09:30:35 GMT",
-        "timestamp": "2026-03-19T01:49:29.027494"
-    },
-    {
-        "source": "鏡週刊Mirror Media",
-        "region": "嘉義市",
-        "title": "嘉義恐怖火警！烈焰連吞13戶1人灼傷送醫",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiXEFVX3lxTE9ldmEwbTdrdE13ZmZ3TFR2bUFyWnA3UDQ4VFUxSWptRFNpd0VjcFVBYUJBeExFVnpKMlNuMEJMZm1VZUF3OVFZZUZnWkMtbHFWMS1WREJMUjB3TmU20gFiQVVfeXFMTlA0U1Roc01oZjVXNG5CZDZyYXFub0xDdExySkdpR3lIVG1Qd0RlQmhmNGszUlVWdUVfalZEQTNOYzJMTGJlOXpmTW1QZW5iVUxOdjBtSi11bnJXem1manBSTWc?oc=5",
-        "published_at": "Wed, 18 Mar 2026 23:39:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.027577"
-    },
-    {
-        "source": "news.cnyes.com",
-        "region": "台灣 (未指明特定縣市)",
-        "title": "伊朗攻擊沙國利雅德煉油廠美方專屬區域 引發大火",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiT0FVX3lxTE9kZ2lEck5nYUF3emNYRTBXMUwyU3U4czZPcmtJTVV0azJMcFVUVE1VUEpEZVlJcjJWSUczOGxnQVgyT1JRZ05TcnRJdU9qMW8?oc=5",
-        "published_at": "Thu, 19 Mar 2026 00:35:46 GMT",
-        "timestamp": "2026-03-19T01:49:29.027695"
-    },
-    {
-        "source": "客新聞 HakkaNews",
-        "region": "苗栗縣苗栗",
-        "title": "清明掛紙苗栗2週驚見81起公墓火災 倡導「除草不火、紙錢不燃」",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE5iQy1fcDdrTndqVFM3QlU4UFdGdXpJUDVic2JXTjV4TXFQdkR0Smc0QTUtWHkwRUtaX3FXalZjYmQtbHN0QXI2UVlzYmFmOUZa?oc=5",
-        "published_at": "Wed, 18 Mar 2026 08:15:22 GMT",
-        "timestamp": "2026-03-19T01:49:29.027720"
-    },
-    {
-        "source": "中央社 CNA",
-        "region": "嘉義縣阿里山",
-        "title": "阿里山花季遊樂區內旅館深夜火警無人傷 影響159人",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5xUWNkLTNjZWpLZndhOGFXX1BEaWtMUE1JNklHZHNlZTBvUnI5VGUyZE1MajhfaHRMcGFzZmctQ08tRlRrNGQxTERvbHBXX1VzQi1lQklzWmNKTkdaeEhn?oc=5",
-        "published_at": "Wed, 18 Mar 2026 01:37:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.027821"
-    },
-    {
-        "source": "TVBS新聞網",
-        "region": "基隆市",
-        "title": "影音／基隆住宅突起火！濃煙直竄天際 警消緊急灌救",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiT0FVX3lxTE1LOTk3UkZvQlZyMXJyRVBRbUFNdHpIRmFLc2JkM2MycmxOZVoxM2tvczJ4WjQ0OVFBbUxIRVExLXY5bUhITWdENW5mWEJpbzQ?oc=5",
-        "published_at": "Wed, 18 Mar 2026 10:05:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.027841"
-    },
-    {
-        "source": "MSN",
-        "region": "台灣 (未指明特定縣市)",
-        "title": "美福特號航母「撤離戰區」返港! 大火燒毀百床位、200 人傷",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMipANBVV95cUxQd2xtYTF5X3lLUVE2M2hJTWg0ajJ0Z0c5Q2N2QU9hWjZlT2Y5SjRpS3F6WDR3Zkt1bE5Cc1lIYTBUZllQUGc5ZGhacFpHZDVqM2ljR1UzbmUwVGNjYlV4N2FnOTRsYWhvQUdoTUREcjdoYUd0V1FydFhrY3pXRmFKMUxFYU1tZ0FCT0ZjSElUR2JnTG5FMngwZXZSVnZGclZVVGh4enFpanhlWUJMZVh2UHZ4ZWhBbFBQM1Nkd25JZ0NrVmhBRVdaUVFMdHIyZTNoNTc5UzFmX3JqY2Z1SkRnWC13MEhIREZBQWpvNUNsVV94STVHbzFhSHZGS2xuM0JxSFp1YUVfOFhseUR6UzVIY0N0NTZwY3dGckg4YUtDcjg0M08tREZPQUhFYW1vdTByUVBPVmZqZHp1OHlscmY2Q3VQZmhlZG1XcXFsRUxxeVg4V0R2S01FWDFPSEZPYmltU2YtbFBzMUdJaC1kSHpkWVUxd3J2anhWUnR3ZkRnbWlwWmVPVmdFZjhoSjROMFp4Ry12UmZRUjRBYUtSVk45Z3NabXI?oc=5",
-        "published_at": "Wed, 18 Mar 2026 23:38:28 GMT",
-        "timestamp": "2026-03-19T01:49:29.027966"
+        "url": "https://news.google.com/rss/articles/CBMi3wJBVV95cUxQeEVCQVlzUjI2eFBBeGFWLWhHOHJiTE5MSWxvLUdTY1plalJ1WnpjUGtsbjZ0d19pcHNJd2JLYlhydmpQQ0U1QkVZa1VvT3B6QlZEX1NETzU1SkFDYk96T1RhaWJubWxjOVlZSFhqdGZmRkExRkhGNzU2cnVPRWtJdUtPd0k2blFaQVlGSzcxSy1HX3BDUXFiRjFmdEtWVW8ybDE1b2E2Q0IyMkhsai1Bb1R0MjNDSnZVbWwxd2NLamJxd2traDFrQWo1dzBLOU5HaDltazdPNlgzcFp0RGEzVkdvQy1RVzNBQzZYZGk5NmZsVTNiV3JmNHRkXzRVamhoRWFrZmE5Q1c1dmQtZ3hoMEttblRLZHNHalVsLXpWVXhhZFJHYXE4UWRfUWdHYUdPOGdVdmtXV3pOLVdXcFZuWnhHRUdaNjB6SXBnRERrUkdkajBicDRsZkhFem41RE0?oc=5",
+        "published_at": "Sat, 04 Apr 2026 08:33:23 GMT",
+        "timestamp": "2026-04-07T08:37:20.735842"
     },
     {
         "source": "TDN台灣生活新聞",
         "region": "台灣 (未指明特定縣市)",
-        "title": "蚯蚓養殖場臭味擾民 環保局稽查護居民",
+        "title": "香菇菌類廠異味擾民 議員邀相關單位稽查",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE5uZWVqZHE2X05zR1dGTnlnYU1OTmJQa1NhQkxlVlFEd2ktTEY2Zm13TUZSdHlyd2NfTDFJZDVYLTNkemlkSU1jQXdmYnVPbkFt?oc=5",
-        "published_at": "Wed, 18 Mar 2026 12:04:34 GMT",
-        "timestamp": "2026-03-19T01:49:29.028126"
-    },
-    {
-        "source": "聯合新聞網",
-        "region": "台中市中區",
-        "title": "影／台中大雅木棧板大火 燒毀現場貨車與轎車共3輛",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE5rY3R1WjlERkdGRm42Ni05Mk5LSFJiVG1FVjJpM1g0VjA1a1ZNbjk5ZnBQR3Q4UGRaN0o1Q3pTUTJ4emMyMEdhQ3dkTGVub0sz0gFWQVVfeXFMT0VCWFp1NXVIa0hOVmEyOXFhTjJ1WGkwaEtldm1POWhkaG5OeTBuQXc0NjhxNV9KY0RSQlpJZDdEOHVLMkpIRnBCTmxtLW5rN0NPRlR4WXc?oc=5",
-        "published_at": "Tue, 17 Mar 2026 06:01:23 GMT",
-        "timestamp": "2026-03-19T01:49:29.028160"
+        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE00M1gzY2VkUWhlMmtlZDMzZnRiTDUyTXhUU0Rxa3JIeGV1MlFzd1R3X3RXR1lNVlAzelJCSm5mWk1icmtOa3VSTnNFTmppNUVY?oc=5",
+        "published_at": "Mon, 06 Apr 2026 12:03:42 GMT",
+        "timestamp": "2026-04-07T08:37:20.735971"
     },
     {
         "source": "Yahoo新聞",
-        "region": "新竹市",
-        "title": "新竹變電所測試爆火警！包商死亡 光電大廠友達、采鈺傳壓降",
+        "region": "新竹縣北市",
+        "title": "住宅火警爐火烹調釀災比例最高！ 北市消防局籲人離火熄",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMixAJBVV95cUxPMTZfZXpFbWhKU1M3aE5ObUlVVG83bkVfSTE0VDZNNk1NSDJDNHhCaEdVWjczMk96clZGMkthSlBXX3Vmblk1dW1USU9JZkdBczNkZ0RXRGI5Mk1XLW1FVkVIZHNFTHJITWU3bUhWcUh0djROallrd18wN29vS0VXU3ctMTFSMzdIT0g2SlNxSU1sWHVfUGdLd01oMUVDVXhFZDBoWG1sMXFLN2pYbzA2eENRMzU3NzNYWFMtYjFwbXJuZ3ctaFdPek1qbjNWMzBEeHRuTGZseHJBSkNwS3ZTWkZsem9OZWc3TTNTR2RpZjdrb1lRSVVLZG9zbWhacjVoSlY3ZHJTWlJRVkEweExaai1aN3pnSHI3X3NyUnVhdWdKckdNdXRpWldoYUk1X1JKQ2o1YllZMTIweXJWOUp4SE5MM1M?oc=5",
-        "published_at": "Mon, 16 Mar 2026 11:03:05 GMT",
-        "timestamp": "2026-03-19T01:49:29.028177"
+        "url": "https://news.google.com/rss/articles/CBMi9AJBVV95cUxQaUtrU0hwNTd6VlZVdzR4M0JzZGdHTG05c2Q2TEJJNGRoWGhia2VwMUYwZk01c1U2eTFQN1dWQkhMeU1mTEJiQnZzUURTWF9TWVlOUlB3ZVEtMnJiUmV5OUhuVDQ4d09zMGV3aHNpOVJxOEtOSHRPWEs2MWZVOGVtY1RCb2tPeHhTbmNVT2J6ZkxVLTBzbi1VOVVTVWdjUm5JemZrLUdqOEx3TXpjVkNnNHBmN05vOXBHSGgzNlRlcUtPSVdhd0JVZm1Vd28xWmNGMG9yUmJVVFBvZVM2dFBvYXFoMzhYTzRNUWxlQ0Q4SEZ5ZDlCZEhmbVF6Xzd3clA3Vk1mcURPc3VlclI1MVBmNno4NnRpSDZzdjdkc0VfQmMzREhiSk1mSzh1TFN2eEJKX0cxSFQ0Y1YyRTFieVU5QWVyYldLWTF0eXVDR1dxRnJVUGJvdjF0RWpXV2ppMDh0NXJibGFpNVZYMnZSOXlnUTF6dXE?oc=5",
+        "published_at": "Sat, 04 Apr 2026 10:03:01 GMT",
+        "timestamp": "2026-04-07T08:37:20.736202"
     },
     {
-        "source": "Yahoo新聞",
-        "region": "台中市中區",
-        "title": "台中沙鹿公墓雜草火警 延燒鐵皮貨櫃 (圖)",
+        "source": "鏡週刊Mirror Media",
+        "region": "高雄市燕巢區",
+        "title": "清明掃墓釀禍！高雄燕巢大火「濃煙吞山」　千戶慘停電",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiogJBVV95cUxPdFdsSURFN0xIU1FpYTh5QU5vbDdmXzQwZ1BMejZHZzIwaTZOalJzODdXUzRwYXZpelliSTItWGhrODZ3RkNMbkZtdUZ4YzYyeWpjWDZpX2MtY0owWlJhZklndi1OV1BISl9WWXBpQ3l1Q0laS09RWDNsVG11Vm9WWlFDWTVORm9Qc0FYMVhzNlVHSEhnZnFRNVFGWDkxMGhscmgzdU9kQjRrNUpiekpwdks3X0VuY1dKb3V1N2lGS3B1TU1xMGwwcXNZQ1dTNTNBZXFSV2ZlV3pGbzBSSVh0ZTh4NUxBRlpaR25aNEZXN0o2c1FUT1lETVZjZ0Juc2Z0NDVzWFRNQ21pZlRXVDhndFdIOENFOFRqOVEwR0MxcWRkZw?oc=5",
-        "published_at": "Wed, 18 Mar 2026 10:53:57 GMT",
-        "timestamp": "2026-03-19T01:49:29.028191"
-    },
-    {
-        "source": "中天新聞網",
-        "region": "桃園市桃園區",
-        "title": "快訊/桃園突竄黑煙！緊急送醫了",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTFBPYXNYblVvODE2RldwMHlqRlRINDFWTWNzejgxWUxMXzNrX1ZsZ0ZyTGNQU1hYbU80aW12U3BHMEdLNEktN29Gb09aYWxQR3ByVkdz?oc=5",
-        "published_at": "Wed, 18 Mar 2026 11:57:24 GMT",
-        "timestamp": "2026-03-19T01:49:29.028203"
+        "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFBMNmUtLWF6TDhxZ2ctMTZuSUVsbnQ5LUZRQmhEU3NyQTdUNTZVX0ZaeDA3V2NSLS1BdWdlUnhJenM3cVZRRnBPcl83QWVUNnFBYndFcFowNmFsbE3SAWBBVV95cUxQd3BPSzhRMUFwNHNqRTR3YXlFSERBQWJuczlTLUNYdENUMkl2WExSQXBZUEF3ZUg1bmFSWi16Vkd6NTllMUUxa3RqTmdENXdlclVYcW94amM1cTVSQTAzT04?oc=5",
+        "published_at": "Sat, 04 Apr 2026 02:47:00 GMT",
+        "timestamp": "2026-04-07T08:37:20.736262"
     },
     {
         "source": "自由時報",
-        "region": "台灣 (未指明特定縣市)",
-        "title": "彰市山火延燒8小時居民衣物燻黑崩潰 空拍畫面超震撼",
+        "region": "苗栗縣苗栗",
+        "title": "暴雨土石流沖垮瓦斯管線 苗栗西湖民宅烹煮釀火警",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiakFVX3lxTFBlaDNRU3U1dU5xT2RrZW43SHVqc2RVMEx2b29PNFp1dm5NajM3SFNfU3ZuWXNXRlF1Z3FuZ0hEbGRVTVF4YktMQ1NTckhZYnMzMEI4QUFmczMxODVIRjBDcjc0Y05UUjd6LUHSAW9BVV95cUxQM3hOVjRHaU40eVNwMS1BUURxb2QyOTVScnZ6X1hIVThGRV82eVNtaXY1N0lIbDVLTDJmSWlQWkR2YnUwbnZSM1ppMjhZTDBJZ1R1NTBWU1pvcXNKZTRiaWZTbnJ1R0FPUkF1M0wtTE0?oc=5",
-        "published_at": "Thu, 19 Mar 2026 00:24:31 GMT",
-        "timestamp": "2026-03-19T01:49:29.028350"
+        "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE4xcXppaGV3SUtyeUc5MGE0SDFHenYtS1VIM2pXWHdmaDNpelBPVGhxREE3cXp0M0RxZGpkU2xkRHdOUjh3bUt3M2szaGFEb0lTRDNqRm8tX1FXSG51TWE1bVNXNGNYb1RL0gFuQVVfeXFMT1hvMHBOTXRhZ2lrdkZrYjJJaDVDdV9INHNwQlF3U0syU3J2ZDRCbk5mWlhSWDF6d0FPSFNzNktzTWstTHVIVHctRmJoTXhpRE5fa1dPNmtHSXZWc1c3UDQ4SzhycVYtaFAwbmM3MlE?oc=5",
+        "published_at": "Sun, 05 Apr 2026 03:24:28 GMT",
+        "timestamp": "2026-04-07T08:37:20.736276"
     },
     {
-        "source": "中時新聞網",
-        "region": "屏東縣屏東",
-        "title": "屏東 力暘太陽能板儲料廠大火 無傷亡",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMia0FVX3lxTFA1R2cyZHlpbWhHUDJWMVlneWo4MjNiX1N1RnhjZHJRUnpLbUFuR2VuQnBmV3pTcFlINjQwVU1NeE5qOUl1ZndBZ3JlOFlZTm9EWmgtc0hPejBNdlUxak9jeXdqVjMzUS1DMExr?oc=5",
-        "published_at": "Tue, 17 Mar 2026 20:10:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.028364"
-    },
-    {
-        "source": "TVBS新聞網",
+        "source": "永續共好",
         "region": "台中市中區",
-        "title": "獨／同地點又燒！台中沙鹿公墓火警延燒鐵皮屋 里民揪1可疑男",
+        "title": "台中連3天火燒山！清明掃墓「4不1要」，燒雜草最高罰10萬元 - ESG遠見",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiT0FVX3lxTE9fbjBhMUFmajV5OXNYcFFFVDVYVUNfNWliN0FpNnNiVnh4S2dKSEt0aDZkdWlSdGVzSjhjd2M0ajRWQWUzQ1FVWkR1MlN6cjg?oc=5",
-        "published_at": "Wed, 18 Mar 2026 08:53:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.028399"
+        "url": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE1mOVNmVm5ZNnhqMWxzbGYwUVB2dXI2YXQzb0RhU09odkUyRVRUdC1nQXp6SmduS1FFMGhSMEdkdGVnX3oyQ293NGRuWjVRZw?oc=5",
+        "published_at": "Mon, 16 Mar 2026 07:00:00 GMT",
+        "timestamp": "2026-04-07T08:37:20.736299"
     },
     {
-        "source": "TNL The News Lens 關鍵評論網",
-        "region": "新竹市",
-        "title": "新竹市竹園超高壓變電所火警，承包商1死2傷，設備更新變壓器起火釀災",
+        "source": "墨新聞-MORE News",
+        "region": "嘉義市",
+        "title": "守護「嘉」裡好空氣 嘉義市免費室內空氣品質診斷服務開跑",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE50ZV9feC00d2hGV2dXQllKckJiamk4Vzd1Q2lSaG1md1RPN1d0by1RSkpaUXlvOWZYWXFtRTgyUV9lc0lENzZtS3JibnpnbldIb25SWQ?oc=5",
-        "published_at": "Tue, 17 Mar 2026 02:27:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.028429"
-    },
-    {
-        "source": "Yahoo新聞",
-        "region": "基隆市",
-        "title": "基隆民宅傳火警！ 7旬翁點蠟燭釀災背部燒傷送醫",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMixgJBVV95cUxQSndaVlNBTzhQeFJldmlQNUZ0U3h5bEpSYXlGbjdiN2R5WHRISXF5X08wR0dkTmpZNDl0Wmg2RzhvR2hFTC1QbjR0UTY4UVBTM0Y2TndxTGRMX2JLck9KLTVBWlBXWENyanpVX21Vam4tS1NyUm1ScTBTR1ZtWEJyWWtGZnd4TFlNdXgwcW9yeHVBZWJFV3lWM1VDa0kwa3FvTWp3ZVRxUVFnVzBOZUpQNHRnYXlXWnlFOTBOTmg3eXg4WEVyNTRXbnJ6UW5JbjZ1MjlLYlV0N0RjUHFFRFV4dXo5S1pZQ0VvQjhRMlIxcVRZQU5GX1c3ZGFESHlyZnFCYkRMM1lXNWcwV0x2ckZxWGxxdUxDMHR0TW5EYVN0clhlNmpMSGwzTUpaYUhXUkd3eWNyNVR4bG1USzkwWElucDE5Y0stZw?oc=5",
-        "published_at": "Wed, 18 Mar 2026 11:31:36 GMT",
-        "timestamp": "2026-03-19T01:49:29.028449"
-    },
-    {
-        "source": "Yahoo股市",
-        "region": "新竹市",
-        "title": "竹科變電所爆炸竄大火！台電出面曝原因：不影響供電",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMi-wJBVV95cUxOLXNkREtDV3JFV3JGWk1Ecl9YTVRSRU5kOWl1T0FxT3V0NFlOLTB4OXpRNmJWN1l0MVgyZC1QeGlfTjJkZzdlY0pRN1VhN0k1SHNudjJ5bGtvVUIwUEFYcFJRUWZrUXpBUVZhUFh6MXFKN0VtaTFrR3JxYkdxTmwyOGk2d0lLMlJnd0hDbVdmdlQtYnAxREZzMWV6OTRtY3V5UUloemtsSFBRTG0wUTNVQnFiX01UZXZDZUl1MERpRlVsMUF4OFdaZUlBYTRGckRkdmtKUU14UTRWeHQtWmtMUUMtUzVmTV9tVVItN2w3aV93UlVOWDhzME5GQ096VE1hRmc5d3pjZDluT0EzY2NINGs5RzhtMGI2NWJWVmZXQ2Y2aGhpT1BHMlBpV0xCSm8xeFN1X0c2eFBKVHdNRkxfenZ3ZF9nTEVjSDZ6UEh0a2E0eHVCNXFDaXBhUlpwN2NVOXE0bnlFMGpfU2J3M19ZTkdsR3d0Q2dYRVo0?oc=5",
-        "published_at": "Mon, 16 Mar 2026 08:39:49 GMT",
-        "timestamp": "2026-03-19T01:49:29.028467"
-    },
-    {
-        "source": "自由時報",
-        "region": "屏東縣屏東",
-        "title": "屏東太陽能板暫置場火災釀空污 環保局開罰",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE1TMnZTZnNrTnJlbXBSa1pfY3F1UTF1dUR3SGhoVFpfeXhIcEVmS09EcHhJbDFNakd0eW9rMExtOTMtZFFwNGlXSS1FamVtS0NnSkJaejdGWGdmam1pQTlVbmRZYWHSAWpBVV95cUxOYXh6ZUE1N1Y5VmlFb0sycC04N3JFbGJXdHVab045NXlqQno1ZmJObVJRdy1mVGYtTnhYVk1CQTZrNkhmdnhLajZoblBQbWVLRUx6OEtlUDBlT1NkUi1pMkYtQU1YSzduMDhB?oc=5",
-        "published_at": "Tue, 17 Mar 2026 11:10:23 GMT",
-        "timestamp": "2026-03-19T01:49:29.028480"
-    },
-    {
-        "source": "中天新聞網",
-        "region": "基隆市",
-        "title": "快訊/基隆民宅大火「全面燃燒」1人送醫！烈焰狂竄畫面曝",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE1rSjRXLUNTbnA0MEVoMzFPckVOVVZXOFlVcXRYRm9JSzdDRVpxMHJHN0l3V1BBc1ZGTF9MNGdueXlIZmZzejV6NGpMWGR2Q1ZybWNN?oc=5",
-        "published_at": "Wed, 18 Mar 2026 11:08:30 GMT",
-        "timestamp": "2026-03-19T01:49:29.028508"
-    },
-    {
-        "source": "中央社 CNA",
-        "region": "屏東縣屏東",
-        "title": "屏東林邊太陽能板暫置場火警細懸浮微粒普通級| 社會",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE1sSHNRckpORmU2RXNVa1U0Y1pkTzZ6T1d1cmJjV3Q3RW1RTXpmMEdZaFpBWEZUWURKbmRhMFk2LV8xbHdTRjJqYjd4YjBmQy12cV9ORDY5RHRSUEZEVlZV?oc=5",
-        "published_at": "Tue, 17 Mar 2026 10:57:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.028551"
-    },
-    {
-        "source": "台灣好新聞",
-        "region": "高雄市前區",
-        "title": "高市清明節服務整備工作提前啟動 全面戒備慎防山林火災",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMi_gJBVV95cUxNdEI5dEg0MnlTVjRUajJkZ3ppOFJLTVE1OXh3R0VnWnJJY2Z1N3ZieVZMeVJCcHdldkx5SHFOZUJLRDBwWDg4cXV5R1VpV3NRWjJOTHhBdHJZRko3S1Q0TzloQVk1LXdjUnV6eW1vRHd0N1A1Sm5VRVNHMV9SWlhKNU0yZ2JfazJkbUQwZnJySFFSN0F1NXJ6T3M0SVNNMW40SWU5SGhGSTgxdnEya3NFVm9IdTZiWkkyZE1iOEJDdjhPWjJKV3Y3S2JKUklfOU5HUjNHdko4ZVhlU2ZGc2VhZjdzRUtnZEZhMzRCMUpONzJ0cHBNd1ZwU1dCWHVqcDRwaDZsM0diRmk2dzBlVzYzeUhvZ1dDX2dHTERyTzJHTEZiUzhwSGc5WmhTeGc5NVlWZUxUTTUtMDdWSTB6VVlLVmlnOGdiMzg0SWdjNUhFZ09vcnhDTm5UcVRwOHl1aGpVTUt4cURQbnd1LW41V0N3X3JvVVRyakFydk52OHlR?oc=5",
-        "published_at": "Wed, 18 Mar 2026 16:09:54 GMT",
-        "timestamp": "2026-03-19T01:49:29.028674"
-    },
-    {
-        "source": "聯合新聞網",
-        "region": "苗栗縣通霄",
-        "title": "客家掃墓苗栗2周81場雜草火災 通霄24公墓一燒逾19個小時",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE9pQkphdk1RM2FMeVNvY0lQUHFlSFIzSDYwN0xmNEoyOGV5bTZNbFpubGRaZi1neU1xTUNtaU5IZjJKQ1JzakJzSXhUbjBDal9P0gFWQVVfeXFMUEtEZi0tcTg1QVhjTEVmSUNGM3UyT282Y1JEZWhjaWFjWWVvRVVGanY5azIwZm15S1FxUTZXNW9ZNzdlRUZCaEdMZ09wd25CdGVkakxlVXc?oc=5",
-        "published_at": "Tue, 17 Mar 2026 08:52:01 GMT",
-        "timestamp": "2026-03-19T01:49:29.028704"
+        "url": "https://news.google.com/rss/articles/CBMiQkFVX3lxTE9Pb3BmOHB5UUNOSGp5WnBaZmo1VXlLX1pqUS1OdWhfOXFPUGZUNy1kVnkxOVJkWEJ5andSeGxEdHI3dw?oc=5",
+        "published_at": "Sun, 05 Apr 2026 03:17:49 GMT",
+        "timestamp": "2026-04-07T08:37:20.736311"
     },
     {
         "source": "NOWnews今日新聞",
-        "region": "基隆市",
-        "title": "快訊／基隆民宅恐怖火警！獨居男疑點燃蠟燭釀背部燒傷送醫",
+        "region": "台中市中區",
+        "title": "台中太平深夜火警！10歲女童趴陽台狂呼救　阿嬤命危CPR搶回",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiTEFVX3lxTFB5ZldmcFNHWGw1Zm1DRUVGNlk5LXJ4aGhSSzRQSUlxMHBGN1B3bnl1czZBR0RHcS1FNjVVaWszZG10LWFmWUtWWUI5bGfSAVJBVV95cUxNM3dPLURlM001Qi1YZlBBRmExZmhhNkhyeTZFdjBXZktVcTdzWnRmRVlINjl4WERUTXQ2RmQyZnFsaTBoUU9wMDlTVWNrSGcyRnpR?oc=5",
-        "published_at": "Wed, 18 Mar 2026 11:31:21 GMT",
-        "timestamp": "2026-03-19T01:49:29.028719"
+        "url": "https://news.google.com/rss/articles/CBMiTEFVX3lxTE1YelJPbmh0c3YzMFNvS0cyS05kUGdqQ1RNV3RNWTVoQ2VXM2Nta2prelZ5dGdsakdIX3VTRC1Ub0llRWdBX1RKaWszNUbSAVJBVV95cUxOUDl4X1NxX0UxeUZPT2NINDYzREZTTFNFSW5SLWFjVVBQdFNxZWJCd3ZBQ0JBT0NNZzBYWTE3NDlOMnBjTWpRRUEtUzltZ0t6cWNn?oc=5",
+        "published_at": "Tue, 07 Apr 2026 00:37:53 GMT",
+        "timestamp": "2026-04-07T08:37:20.736329"
     },
     {
-        "source": "ETtoday新聞雲",
-        "region": "屏東縣屏東",
-        "title": "快訊／屏東「2公頃太陽能板」竄大火！警消出動5怪手　仍在搶救中",
+        "source": "自由時報",
+        "region": "台中市中市",
+        "title": "中市今年2月火災每天逾18件 議員要求加強住警器安裝",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE1lelRlNjltWERsTFlvZFk2WlI0d2ZGREV0OXNCRnVfdS10WlY4YVdZejBRbEtjRUJ2UjRkZW5aYXZHc2FwTV9yNHU2al95WDNYZ3d0cDlZTWJXRlRBZkHSAWhBVV95cUxQcEcwNjN5VWtzQTFpaWY5VFdQM2RxUmVmQ2VUQXdaVmllWXVjZ0ZyZWZQblc1dGFyNTJUbnh5RFlqNHJHaDg3OXZRd0ZKa0lORXA0OW9hb3ZzRmU1ZmlxbUl3WEtsYjUtVQ?oc=5",
-        "published_at": "Tue, 17 Mar 2026 08:28:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.028752"
+        "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTFBFZXFzTkNMT3A1aXlwTktYX0VvcWRQak9NREJMcmtqV1VDRGZvVTd2SGVTY0dUSkF2bWVqME1aam1yN3NKNnk4ZUVmX0tiSkcxMUJCSEhhSGRtVWFrZEpvWFBaSzZWRzdL0gFuQVVfeXFMUHdYdi0wb3BuLWtGeC10bVV2cEdWaEFuM0tSQ3NKcDNhOXZobDZaUllrN2ZrWllNa0J3OTZYLXc4aG82Nk55Q3V4MTZHaTQ1SWI3NXl4V0FYRlRsLW1GQVc1VFk3Y01EUGRoM1ZGLXc?oc=5",
+        "published_at": "Mon, 06 Apr 2026 02:28:02 GMT",
+        "timestamp": "2026-04-07T08:37:20.736366"
+    },
+    {
+        "source": "Yahoo新聞",
+        "region": "新竹市",
+        "title": "爆炸聲嚇醒整條巷！新竹民宅驚傳火警 濃煙狂竄畫面曝光",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMi9gJBVV95cUxOMTFOek0xLW5XVFF2WGlHdHRtdVl6Q0l3T2hjaE4wWnpIUFhzS0NBQUs4cmZrMUgtYjJlSkZJbFBhSVlSWW5UYzVoZWxURGNfQTFkeExDM2h1QllSYVpmdVByX1p3bjU0QW1OTXA4bGNIS2VoWW14NFRjZTFZdWZaUlpfT2hiUE9Zd2VPM1J0YnZfeUlPRWpuTWNnbjBEZWxyZ09VcDNJWUh4NUtxZERrWU5xeWJZTzhJOS1fczBHTnZJcVVJSWhZLVk1cEY5NlFTUGsyUi1ValFWQjFQLWs5RG5OX21TUm1XU19wR3NDdGkyQ2pqTzIyc0Mtbmxfdm0xMVNNcjg4NFZxZUxvMy11NWQ3QlhDa3Nkb2YzVnN0RkpoeWpmRUQtNVluUktLSEFXejVHeVBTQWdSd1Utck9hMVBfOXVsQWJTSXlQQ292UEFUdjlBbEU5ZXNDZk9oazJXTWRFbDRXOVlWNUhWV2JxZXpxMmZRdw?oc=5",
+        "published_at": "Wed, 01 Apr 2026 02:34:48 GMT",
+        "timestamp": "2026-04-07T08:37:20.736418"
+    },
+    {
+        "source": "Yahoo新聞",
+        "region": "高雄市",
+        "title": "高雄「大林煉油廠」驚傳火災！陳其邁示警：8個行政區恐面臨空污",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMihgNBVV95cUxQTEVWWTBQU1BtVzJCdmJtejNsRzFzN0JIdE1GRHJZckdwQWliUUROZXdvMVJrdlkzTHdPQXVqXzhtb25ING9qZGRyemFCSkFNMHlOaE44UXRQdVhnNFNPM2VtaG1Cbk5qYUlOSm8yV2tOU3RpNDZodTdyNmtBOTQ4aWkxVG9qQW82ZGwzSDVDVVlhZ05Xb1BXMzFobFRmTFdadkVoS2FfRkJrTWNyOGZOb3E3RTR6ZThYa2I4Yzc0QWJIcG1EQUhpZTYzYzBlR09qTDRiNWQ1a0s5UWRDblg4c2hteTA5VmZYZjdLLVB2TkUzWnNOVHhLYjUxU0dfYVBUR01HWTlkMmV1TlhpYnIwa3d2YnVTTF9rcmFJVVJMZTZmUGhYcWVvWTFHMzZfbnNDYzBmMXNUcE1oVGJ1SDFna1haR0ptVTdJNmVvcFJCaFp3M0hmcFp0emUyeHBKdE9ONGE1RlNTb2ptaVBPTUM4UGpFZi13RzY3cGc4VjJlV0U4UWFYMHc?oc=5",
+        "published_at": "Fri, 03 Apr 2026 08:33:01 GMT",
+        "timestamp": "2026-04-07T08:37:20.736448"
+    },
+    {
+        "source": "Yahoo新聞",
+        "region": "高雄市燕巢區",
+        "title": "高雄燕巢雜草火警 消防漏夜搶救 (圖)",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiigJBVV95cUxNOFN4LUJDWDluTnM3Sl91OHJ4ZkFISVAxeF9oYmVEdXk3RDNCSjd5NDlfQ3o5ZXZMZE5kTVhoTzQ5OXVPVXNfXzZNRGVPV3NJbUxCSElfc2NORlBWaVlSTXEtcFc5Tl9uU0hhR2Y4YkZaSGhTYmVtRTNHeDFmeHFsTkdYU1psTVVNMThrYlhFWFNEYXVmdlVKWExRWG5HWG5ORFBsdWZQeW1sOU5rRFJHcHdERUg2dXBMU2w3ZkZDaW1yZnF3ZVJYMjJpZlJtOXpBNWUzbUI4WnI2OFJ2MW80bGZFcy1JZHdVOEF0V1VreUR4VUFOOGNwcUpsZjIzX2xPSFoxS0p1T01adw?oc=5",
+        "published_at": "Sat, 04 Apr 2026 03:59:58 GMT",
+        "timestamp": "2026-04-07T08:37:20.736482"
+    },
+    {
+        "source": "中天新聞網",
+        "region": "台南市南區",
+        "title": "快訊/台南透天厝大火！驚見「火鬼臉」",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE5pNWJTemJueG9qRFJSM0dRSU5GUEJFeGEzbEx1TUhBREtRdlQ2SW1wdUZoOF9TZHp4QmhkS2s2Qk1TR2VJTkFyZHY2UGsxR0lOR2tJ?oc=5",
+        "published_at": "Mon, 06 Apr 2026 04:46:16 GMT",
+        "timestamp": "2026-04-07T08:37:20.736504"
+    },
+    {
+        "source": "聯合新聞網",
+        "region": "屏東縣屏東",
+        "title": "屏東縣萬丹鄉加油站發生火警 警消搶救中",
+        "summary": "",
+        "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE1IS1hiSlBlRVcyR1VPOVprMGVELXdjWUp3UVJHYVU4aW9MTFJaaW9PaUlZR3ZYd0JOLVhCM3NkNjhZUnlKRXdhRkduTENJQWRF0gFWQVVfeXFMUFJMY1pXaWstMFZOdGZjNFhleUp0LXp1N0wxNEZndmJjRXJZWFRraWZ5RUhDNGlncldIZEpJT3ktbUFYbTBFZ2JVZXItaUVNWFpMdzUtNHc?oc=5",
+        "published_at": "Mon, 30 Mar 2026 12:06:00 GMT",
+        "timestamp": "2026-04-07T08:37:20.736533"
     },
     {
         "source": "Yahoo新聞",
         "region": "台中市中區",
-        "title": "影/台中大雅貨櫃屋火警 烈焰延燒3車遭燒毀",
+        "title": "電動車火災成新威脅！台中獲贈650萬元CAFS消防車 升級救災力",
         "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiogJBVV95cUxPckFjcWJPSGczNk5UblZZOVNrR0tGRjF3ek5yM1R1S1ZEOTdZRkJOQi1MYkNiSThIVzRFMGxXTU4xUnhzbDlIdE1TYVBxRG1NcENpTzB6WEFYcEItOEtMUW90blkyMmdUdXhjcFZMQTE0cDZzQWN5VWJ3Z3JhN1hrVmlKa1lrZHEtRVc5UW1vdXR1VVN5YjNUc1JrYVB0YUtEX19rbHgxZExiVnV4QmRDYVhLeDl1SUJXMXlqaFptTmxZTU1TQkFiNmhSUHFJOGsyR1FpTXBKQzUxaXhpeDB6aEZIdmd1cXVkcTR4QjRxU29zbElkeUxTNUpxYzl0OUk2ZmNjbnhvMW1fZmczd2V0WldBOGVQNnlHMnNNMXpwRDctQQ?oc=5",
-        "published_at": "Tue, 17 Mar 2026 07:06:36 GMT",
-        "timestamp": "2026-03-19T01:49:29.028798"
-    },
-    {
-        "source": "ETtoday新聞雲",
-        "region": "新竹縣東",
-        "title": "新竹東大路火警！戶外雜物起火「延燒鐵皮屋」　濃煙竄天畫面曝",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE1KdmhtWG0zRC0waTZwcEVnVWNVQzZmTl9PdEtBZ0tUVXdZNWtHVnpSMFRJeDNXMHNiWmpvaGRLQ0M4WmJSdlhjaDJwdXJRd3U1RlVlYUdueXl1QTdjdnfSAWhBVV95cUxNcUpObTMxZUZVQ1VyNUFhWDdEcU9SM3FjLWM3aXRxa0JoS2lkbDNGb29JdlcwY3U5dXMzb2NWUElQbTZOVUprdC0xbnNNN0R6VGFVeVYzSnFyQmJIUmo1ck41QnJSenRNSQ?oc=5",
-        "published_at": "Wed, 18 Mar 2026 09:33:00 GMT",
-        "timestamp": "2026-03-19T01:49:29.028833"
-    },
-    {
-        "source": "自由時報",
-        "region": "新竹縣北市",
-        "title": "清明掃墓火災風險升高 北市導入無人機巡查監測「三位一體」",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE1xZTRIWVktRFBUMTYtWFhmbkw0T1p2LU4wUWxkcmEzYk9PNkhSbFZHNC1yejVLWUtWdW1va1dWTHFqeEs5MEJMYlROZTFzOFpVbFNnZFRaSWRWODNneFExSGdLRHjSAWpBVV95cUxPaFQ4N2NWV3RqbWlzT2RsRHZEZEdVMkQ1bXZ1dDBuNi1CVDc2bllFYW4ybDBVUjdsTlpFN1J6Vm9zNTBWU2R2ajI1dEtmdVZTTzdGUE5wV3NKVHJRUS1Ya2lHU3l2ZjMwZUZn?oc=5",
-        "published_at": "Wed, 18 Mar 2026 02:57:55 GMT",
-        "timestamp": "2026-03-19T01:49:29.028887"
-    },
-    {
-        "source": "Yahoo新聞",
-        "region": "台灣 (未指明特定縣市)",
-        "title": "離戰火這麼近！杜拜機場附近油槽大火 台灣旅客拍下冒濃煙畫面",
-        "summary": "",
-        "url": "https://news.google.com/rss/articles/CBMimgNBVV95cUxNQzh1SlNPU1gyd1psUXpuTE1GcHZRUW8wWElCSzBEd1BXMGk0TzAtZXAwZDJSbXBPSWRVeDVfbFNCTGVxNVMzN1NoQ0ZiZ1YyaHpmd1l0OXJ4VWFxZTJwMTZfT01VNVVBRWU0N2RhMU5keTM0ZDBNQmZtNlNZNTE4RENUZGVXRzRBRHlSNi12TmI4OWt3bmp5UmhMMjRXYmdVdGlLX1VOR0t1R1JuVWJBVlQ1eG5RUjdpdWYyNDJCNHlCY0h3dU1GVXVFUUpRLXRIWG9jaXlWTXBtZkFpQ1RkMGFXSkFVanF6cHVvY2NBUVNkMWdjR2Utb3Bxcmw5Ri1YRHBKOHhxRzZQREFqdHVibk92TVh2SURiRlBsRE1uNDJIUDlPdjNqYnVvajQwa0lIN3dpcVpfMkJYZVYwWS1oZ2lOYm9uR3hvYUNHWFMtVWs4TW5tYUJnVldKN1poQkpYbWJYTWhTYUpKTUJGTEEtVmRMbDA2cFZIV0c4R3VjWmpJWms1X2Fna1FCZ2JjS1VOQzJGOVdfRUlrQQ?oc=5",
-        "published_at": "Tue, 17 Mar 2026 04:26:33 GMT",
-        "timestamp": "2026-03-19T01:49:29.029000"
-    },
-    {
-        "source": "Yahoo 新聞",
-        "region": "嘉義縣東",
-        "title": "嘉義清晨惡火！13戶連棟木造建物遭祝融　1人臉、手灼傷送醫",
-        "summary": "據了解，嘉義市消防局在4時52分接獲通報，稱興業東路145巷住宅發生火警，緊急派遣第二、第一、蘭潭、湖內分隊出勤救援，並疏散多名住戶。現場因周邊道路狹小且為木造連棟建築延燒，火勢猛烈、濃煙狂竄，消防人員在6時15分控制火勢，進行殘火處理，直到6時24分確認撲滅。這起...",
-        "url": "https://tw.news.yahoo.com/%E5%98%89%E7%BE%A9%E6%B8%85%E6%99%A8%E6%83%A1%E7%81%AB-13%E6%88%B6%E9%80%A3%E6%A3%9F%E6%9C%A8%E9%80%A0%E5%BB%BA%E7%89%A9%E9%81%AD%E7%A5%9D%E8%9E%8D-1%E4%BA%BA%E8%87%89-%E6%89%8B%E7%81%BC%E5%82%B7%E9%80%81%E9%86%AB-012213271.html",
-        "published_at": "Thu, 19 Mar 2026 01:22:13 +0800",
-        "timestamp": "2026-03-19T01:49:29.715186"
-    },
-    {
-        "source": "Yahoo 新聞",
-        "region": "嘉義市",
-        "title": "嘉義重大火警「狂燒13戶」！窄巷如煉獄　已知1男臉、手重創",
-        "summary": "景象駭人！今（19日）清晨在嘉義市發生重大火警，從單側起火延燒變成「雙向燃燒」，一共13戶陷入火海，現場一名男子臉部、手部燒燙傷緊急送醫，相關影片也曝光。",
-        "url": "https://tw.news.yahoo.com/%E5%98%89%E7%BE%A9%E9%87%8D%E5%A4%A7%E7%81%AB%E8%AD%A6-%E7%8B%82%E7%87%9213%E6%88%B6-%E7%AA%84%E5%B7%B7%E5%A6%82%E7%85%89%E7%8D%84-%E5%B7%B2%E7%9F%A51%E7%94%B7%E8%87%89-%E6%89%8B%E9%87%8D%E5%89%B5-234307396.html",
-        "published_at": "Thu, 19 Mar 2026 00:46:21 +0800",
-        "timestamp": "2026-03-19T01:49:29.715410"
-    },
-    {
-        "source": "Yahoo 新聞",
-        "region": "彰化縣彰化市",
-        "title": "彰市山火延燒8小時居民衣物燻黑崩潰 空拍畫面超震撼",
-        "summary": "彰化市山中街山區昨天（18日）中午驚傳雜草火災，由於天乾物燥火勢迅速蔓延，並出現好幾個火點，消防局據報派出大批消防員趕往搶救，並出動空拍機從空中監控火勢發展，只見大量濃煙瀰漫山區並往住宅區飄去，空氣中瀰漫煙燻味，當地居民紛紛緊閉門窗，仍有曬著的衣物慘遭濃煙燻黑；消防員疲於奔命灌救，火勢直到昨晚8點多",
-        "url": "https://tw.news.yahoo.com/%E5%BD%B0%E5%B8%82%E5%B1%B1%E7%81%AB%E5%BB%B6%E7%87%928%E5%B0%8F%E6%99%82%E5%B1%85%E6%B0%91%E8%A1%A3%E7%89%A9%E7%87%BB%E9%BB%91%E5%B4%A9%E6%BD%B0-%E7%A9%BA%E6%8B%8D%E7%95%AB%E9%9D%A2%E8%B6%85%E9%9C%87%E6%92%BC-002431433.html",
-        "published_at": "Thu, 19 Mar 2026 00:24:31 +0800",
-        "timestamp": "2026-03-19T01:49:29.715515"
+        "url": "https://news.google.com/rss/articles/CBMi8wJBVV95cUxQMjRXUGRNanJ5UW9pdHFwRHh3d0FEQm5QUFdYRjFzbkExREd3UFdFVnJteTJZT1NodEE5aHJYMnNTZ01mWFBuMEwxS1JlSFdxR3JpYXE2d2oxM29CcTQzYXZYaVpGZFZVTlhxZ25XY1lGT1F6dUJLc2pTY1VFZ3htbVVQLVRsaW9ScV82RVlmNHlTMkpLN3FpY1owcXNzN0xmOElHdTI5ZFJ6SXhwMmgtUzhaZ0pnUFotMGZQSVZlRlNHUUc5Q2IyWDdjUEVCZVQzdkJQMTg3b3VkeDNva0hDN2FHVmF0Smh4WVA4LVpkeU5keWdtVWE3R05sWmMyTV9icW5qeUxfbjc5b2dDb3NxRml2QzJxMW1UVWl1MWZIdnJiU0VhaFFSQUlYelhrLUlmR3kwbG5KbmtZbG1QYmloR0VSQXpaYU5aTHJGMlM3ck9nTGNvMTVfNE44bl85VE5Ed2ZuTHU4MHUxeER0eWdkMWRQVQ?oc=5",
+        "published_at": "Sat, 04 Apr 2026 05:20:48 GMT",
+        "timestamp": "2026-04-07T08:37:20.736553"
     }
 ]
