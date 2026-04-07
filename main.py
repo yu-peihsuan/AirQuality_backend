@@ -272,6 +272,65 @@ def get_weather(county: str = None):
             "records": []
         }
 
+@app.get("/api/user_reports")
+def get_user_reports():
+    try:
+        file_path = os.path.join(os.path.dirname(__file__), "crawler", "user_reports.json")
+        if not os.path.exists(file_path):
+            return {"status": "success", "records": []}
+        with open(file_path, "r", encoding="utf-8") as f:
+            reports = json.load(f)
+        return {"status": "success", "records": reports}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "records": []}
+
+
+class ReportRequest(BaseModel):
+    location: str
+    category: str
+    description: str
+    latitude: float | None = None
+    longitude: float | None = None
+
+
+@app.post("/api/report")
+def submit_report(req: ReportRequest):
+    news_item = {
+        "source": "民眾回報",
+        "region": req.location,
+        "title": f"[{req.category}] {req.location}",
+        "summary": req.description,
+        "url": "",
+        "published_at": datetime.now().isoformat(),
+        "timestamp": datetime.now().isoformat(),
+        "latitude": req.latitude,
+        "longitude": req.longitude,
+    }
+
+    structured = structure_news_event(news_item)
+
+    reports_path = os.path.join(os.path.dirname(__file__), "crawler", "user_reports.json")
+    reports = []
+    if os.path.exists(reports_path):
+        with open(reports_path, "r", encoding="utf-8") as f:
+            reports = json.load(f)
+    reports.insert(0, structured)
+    with open(reports_path, "w", encoding="utf-8") as f:
+        json.dump(reports, f, ensure_ascii=False, indent=2)
+
+    is_confirmed = False
+    se = structured.get("structured_event")
+    if se:
+        is_confirmed = se.get("is_confirmed_pollution_event", False)
+
+    return {
+        "status": "success",
+        "message": "回報已送出，感謝您的通報。",
+        "is_confirmed": is_confirmed,
+        "structured_event": se,
+    }
+
+
 @app.get("/api/news")
 def get_news(region: str = None):
     try:
