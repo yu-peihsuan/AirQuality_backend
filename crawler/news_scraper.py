@@ -1,19 +1,82 @@
 import feedparser
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import json
 import os
-import re
 import sqlite3
 
+# LLM 語意結構化（OpenRouter OPENAI_API_KEY 需設定）
+try:
+    from rag.llm_structurer import structure_news_batch
+    _LLM_STRUCTURING_ENABLED = True
+except ImportError:
+    _LLM_STRUCTURING_ENABLED = False
+    print("⚠️  rag.llm_structurer 未找到，跳過語意結構化")
+
 # 關鍵字過濾：空氣品質相關災情
-KEYWORDS = ["火災", "火警", "大火", "濃煙","空污", "空汙", "異味", "空氣品質", "失火", "臭味", "工廠大火", "工廠火災", "火燒山"]
+KEYWORDS = [
+    # 火災相關
+    "火災", "火警", "大火", "濃煙", "失火", "工廠大火", "工廠火災", "火燒山",
+    # 空氣品質相關
+    "空污", "空汙", "異味", "空氣品質", "臭味",
+    "PM2.5", "PM10", "細懸浮微粒", "懸浮微粒",
+    "霾", "霧霾", "落塵",
+    "廢氣", "排放", "空品", "紫爆", "空污警報",
+    "臭氧", "二氧化硫", "一氧化碳",
+    # 空品警示狀態
+    "汙染物累積", "污染物累積",
+    "空氣品質欠佳",
+    "境外汙染", "境外污染",
+    "紅色警戒", "橘色警戒",
+]
 
 # 台灣過濾：確保新聞發生在台灣，排除常見的國外災情地區
 TAIWAN_COUNTIES = ["台北", "新北", "基隆", "桃園", "新竹", "苗栗", "台中", "彰化", "南投", "雲林", "嘉義", "台南", "高雄", "屏東", "宜蘭", "花蓮", "台東", "澎湖", "金門", "馬祖"]
-TAIWAN_KEYWORDS = TAIWAN_COUNTIES + ["台灣", "縣", "市", "區", "鄉", "鎮"]
+TAIWAN_KEYWORDS = TAIWAN_COUNTIES + ["台灣", "縣", "市", "區", "鄉", "鎮", "北部", "中部", "南部", "東部", "西部", "離島"]
 FOREIGN_KEYWORDS = ["中國", "美國", "日本", "韓國", "加州", "澳洲", "歐洲", "印尼", "印度", "俄羅斯", "烏克蘭", "加薩", "以色列", "國外", "世界", "國際"]
+
+# ── 方法一：規則層 ────────────────────────────────────────────────────────────
+# 排除詞：含這些詞的新聞大概率不是即時事件
+NON_REALTIME_EXCLUSIONS = [
+    "回顧", "紀念", "週年", "歷史", "周年紀念",
+    "電影", "戲劇", "小說", "書評", "遊戲",
+    "判決", "起訴", "賠償", "審判", "開庭", "法院", "訴訟",
+    "演習", "演練", "防災教育", "消防講習", "防火宣導",
+    "保險", "理賠", "股票", "ETF", "投資","呼籲", "籲"
+]
+
+# 即時性正向提示詞（標題+摘要至少含一個，才視為即時事件）
+REALTIME_HINTS = [
+    # 時間詞
+    "今", "昨", "今日", "昨日", "今天", "昨天",
+    "剛才", "剛剛", "凌晨", "上午", "下午", "深夜", "晚間",
+    # 火災即時詞
+    "發生", "延燒", "竄火", "冒煙", "濃煙", "悶燒", "起火",
+    "警消", "消防", "出動", "搶救", "現場", "撲滅", "灌救",
+    # 空氣品質即時詞
+    "超標", "紫爆", "不良", "預警", "警戒", "管制", "停工",
+    "紅害", "橘色", "空品不良", "空品惡化", "居民投訴",
+    "排放", "外洩", "飄散", "蔓延",
+    "亮紅燈", "亮橘燈", "來襲", "欠佳", "累積", "境外",
+    # 通報類
+    "民眾", "居民", "通報", "發現", "檢舉",
+]
+
+def is_realtime_event(title: str, summary: str = "") -> bool:
+    """方法一：規則層 — 判斷新聞是否為即時事件。
+    
+    流程：
+    1. 含排除詞（歷史/判決/演習等）→ False
+    2. 不含任何即時性提示詞 → False
+    3. 其餘 → True
+    """
+    text = title + " " + summary
+    if any(exc in text for exc in NON_REALTIME_EXCLUSIONS):
+        return False
+    if not any(hint in text for hint in REALTIME_HINTS):
+        return False
+    return True
 
 def is_within_last_3_days(published_str):
     """檢查新聞發布時間是否在過去 3 天內"""
@@ -154,11 +217,16 @@ def fetch_pts_news():
         
         # 檢查標題或摘要是否包含我們的關鍵字
         if any(keyword in title or keyword in summary for keyword in KEYWORDS):
-            
+
             if any(foreign in title for foreign in FOREIGN_KEYWORDS):
                 continue
-            if not any(tw_city in title for tw_city in TAIWAN_KEYWORDS):
+            if not any(tw_city in title or tw_city in summary for tw_city in TAIWAN_KEYWORDS):
                  continue
+
+            # 方法一：規則層內容判斷
+            if not is_realtime_event(title, summary):
+                print(f"  ⏭ 規則過濾移除（公視）：{title[:40]}")
+                continue
                  
             if not is_within_last_3_days(published):
                 continue
@@ -201,8 +269,13 @@ def fetch_yahoo_news():
             if any(keyword in title or keyword in summary for keyword in KEYWORDS):
                 if any(foreign in title for foreign in FOREIGN_KEYWORDS):
                     continue
-                if not any(tw_city in title for tw_city in TAIWAN_KEYWORDS):
+                if not any(tw_city in title or tw_city in summary for tw_city in TAIWAN_KEYWORDS):
                      continue
+
+                # 方法一：規則層內容判斷
+                if not is_realtime_event(title, summary):
+                    print(f"  ⏭ 規則過濾移除（Yahoo）：{title[:40]}")
+                    continue
                      
                 if not is_within_last_3_days(published):
                     continue
@@ -253,6 +326,11 @@ def fetch_google_news():
             # 2. (選擇性) 確保標題中「包含」台灣地名，這樣更嚴格。如果你覺得太嚴格可以註解掉下面這兩行。
             if not any(tw_city in title for tw_city in TAIWAN_KEYWORDS):
                  continue
+
+            # 方法一：規則層內容判斷（Google RSS 無 summary，僅用 title 判斷）
+            if not is_realtime_event(title):
+                print(f"  ⏭ 規則過濾移除（Google）：{title[:40]}")
+                continue
             
             # Google RSS 通常把新聞來源放在 title 最後的 " - 來源名稱"
             source = "Google News"
@@ -331,7 +409,7 @@ def save_to_db(news_list):
     print(f"💾 已將 {inserted} 筆新資料寫入資料庫: {DB_PATH}")
     return inserted
 
-def run_scraper():
+def run_scraper(enable_llm_structuring: bool = True):
     """執行爬蟲並印出結果"""
     all_news = []
     
@@ -353,9 +431,14 @@ def run_scraper():
          print(f"   時間: {news['published_at']}")
          print(f"   來源: {news['source']}")
          if news['summary']:
-             # 印出前 50 個字的摘要
              print(f"   摘要: {news['summary'][:50]}...")
          print(f"   連結: {news['url']}\n")
+
+    # LLM 語意結構化（若模組存在且未被禁用）
+    if enable_llm_structuring and _LLM_STRUCTURING_ENABLED and all_news:
+        print("--------------------------------------------------")
+        all_news = structure_news_batch(all_news)
+        print("--------------------------------------------------")
     
     return all_news
 
