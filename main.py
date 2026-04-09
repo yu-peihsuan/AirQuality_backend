@@ -6,7 +6,7 @@ import os
 import urllib3
 import json
 from datetime import datetime, timezone, timedelta
-from rag.llm_structurer import structure_news_event
+from rag.llm_structurer import analyze_citizen_report
 
 # 載入 .env 環境變數（本機開發用，Docker 透過 docker-compose 傳入）
 try:
@@ -315,33 +315,41 @@ class ReportRequest(BaseModel):
 
 @app.post("/api/report")
 def submit_report(req: ReportRequest):
-    news_item = {
+    now = datetime.now().isoformat()
+    report_item = {
         "source": "民眾回報",
         "region": req.location,
+        "category": req.category,
         "title": f"[{req.category}] {req.location}",
         "summary": req.description,
         "url": "",
-        "published_at": datetime.now().isoformat(),
-        "timestamp": datetime.now().isoformat(),
+        "published_at": now,
+        "timestamp": now,
         "latitude": req.latitude,
         "longitude": req.longitude,
     }
 
-    structured = structure_news_event(news_item)
-
-    reports_path = os.path.join(os.path.dirname(__file__), "crawler", "user_reports.json")
-    reports = []
-    if os.path.exists(reports_path):
-        with open(reports_path, "r", encoding="utf-8") as f:
-            reports = json.load(f)
-    reports.insert(0, structured)
-    with open(reports_path, "w", encoding="utf-8") as f:
-        json.dump(reports, f, ensure_ascii=False, indent=2)
-
-    is_confirmed = False
+    # 使用民眾回報專用語意分析
+    structured = analyze_citizen_report(report_item)
     se = structured.get("structured_event")
-    if se:
-        is_confirmed = se.get("is_confirmed_pollution_event", False)
+    is_confirmed = se.get("is_confirmed_pollution_event", False) if se else False
+
+    crawler_dir = os.path.join(os.path.dirname(__file__), "crawler")
+
+    if is_confirmed:
+        # 確認污染事件 → 存入 user_reports.json（參與後續 VGI 熱點分析）
+        target_path = os.path.join(crawler_dir, "user_reports.json")
+    else:
+        # 無效回報 → 存入 user_reports_filtered.json（僅存檔記錄）
+        target_path = os.path.join(crawler_dir, "user_reports_filtered.json")
+
+    records = []
+    if os.path.exists(target_path):
+        with open(target_path, "r", encoding="utf-8") as f:
+            records = json.load(f)
+    records.insert(0, structured)
+    with open(target_path, "w", encoding="utf-8") as f:
+        json.dump(records, f, ensure_ascii=False, indent=2)
 
     return {
         "status": "success",

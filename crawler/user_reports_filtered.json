@@ -1,0 +1,24 @@
+[
+  {
+    "source": "民眾回報",
+    "region": "臺北市中正區愛國西路一號",
+    "category": "車輛廢氣",
+    "title": "[車輛廢氣] 臺北市中正區愛國西路一號",
+    "summary": "ggggggggg",
+    "url": "",
+    "published_at": "2026-04-09T03:23:38.315408",
+    "timestamp": "2026-04-09T03:23:38.315408",
+    "latitude": null,
+    "longitude": null,
+    "structured_event": {
+      "is_confirmed_pollution_event": false,
+      "event_type": null,
+      "pollution_category": null,
+      "severity": null,
+      "location_description": "臺北市中正區愛國西路一號",
+      "affected_radius_estimate": null,
+      "confidence": "low",
+      "filter_reason": "描述模糊、情緒性發言、無關文字"
+    }
+  }
+]
