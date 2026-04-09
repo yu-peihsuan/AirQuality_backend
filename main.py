@@ -5,7 +5,7 @@ import requests
 import os
 import urllib3
 import json
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from rag.llm_structurer import structure_news_event
 
 # 載入 .env 環境變數（本機開發用，Docker 透過 docker-compose 傳入）
@@ -272,14 +272,34 @@ def get_weather(county: str = None):
             "records": []
         }
 
+def _load_user_reports() -> list:
+    file_path = os.path.join(os.path.dirname(__file__), "crawler", "user_reports.json")
+    if not os.path.exists(file_path):
+        return []
+    with open(file_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 @app.get("/api/user_reports")
 def get_user_reports():
+    """回傳 24 小時內的民眾回報。"""
     try:
-        file_path = os.path.join(os.path.dirname(__file__), "crawler", "user_reports.json")
-        if not os.path.exists(file_path):
-            return {"status": "success", "records": []}
-        with open(file_path, "r", encoding="utf-8") as f:
-            reports = json.load(f)
+        reports = _load_user_reports()
+        cutoff = datetime.now() - timedelta(hours=24)
+        recent = [
+            r for r in reports
+            if datetime.fromisoformat(r.get("timestamp", "1970-01-01")) >= cutoff
+        ]
+        return {"status": "success", "records": recent}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "records": []}
+
+
+@app.get("/api/user_reports/history")
+def get_user_reports_history():
+    """回傳所有歷史民眾回報（後台用）。"""
+    try:
+        reports = _load_user_reports()
         return {"status": "success", "records": reports}
     except Exception as e:
         return {"status": "error", "message": str(e), "records": []}
