@@ -83,23 +83,27 @@ def is_within_last_3_days(published_str):
     if not published_str:
         return False
     try:
-        # RSS feed parser 通常會回傳 time.struct_time 或標準格式字串
-        # 這裡由於 feedparser 處理過，通常 published 會帶時區 (例: "Wed, 11 Mar 2026 04:58:55 +0800" 或是 "2026-03-11T04:58:55Z")
-        # 直接使用 feedparser 解析出來的時間 (避免字串格式不一致)
-        # 此處簡易實作，如果是 datetime 解析：
-        pub_time = feedparser._parse_date(published_str)
-        if pub_time:
-            # pub_time 是 time.struct_time
-            pub_dt = datetime(*pub_time[:6])
-            
-            # 使用 UTC 目前時間，因為 feedparser._parse_date 預設轉 UTC
-            now = datetime.utcnow()
-            diff = now - pub_dt
-            return diff <= timedelta(days=3)
-        return True # 如果解析失敗，保守起見保留
+        import email.utils
+        # 優先用 email.utils 解析 RFC 2822 格式（RSS 標準格式）
+        # e.g. "Tue, 31 Mar 2026 07:00:00 GMT"
+        parsed = email.utils.parsedate_to_datetime(published_str)
+        pub_dt = parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+        now = datetime.utcnow()
+        diff = now - pub_dt
+        return diff <= timedelta(days=3)
+    except Exception:
+        pass
+    try:
+        # 備用：ISO 8601 格式 e.g. "2026-03-31T07:00:00Z"
+        cleaned = published_str.replace("Z", "+00:00")
+        from datetime import timezone
+        parsed = datetime.fromisoformat(cleaned)
+        pub_dt = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        now = datetime.utcnow()
+        return (now - pub_dt) <= timedelta(days=3)
     except Exception as e:
-        print(f"時間解析失敗: {published_str}, {e}")
-        return True
+        print(f"時間解析失敗，略過此筆: {published_str} | {e}")
+        return False  # 解析失敗 → 拒絕，避免舊文混入
 
 # 從 CityCountyData.json 動態載入 DISTRICTS
 # JSON 結構: [{"CityName": "臺北市", "AreaList": [{"AreaName": "中正區"}, ...]}, ...]
