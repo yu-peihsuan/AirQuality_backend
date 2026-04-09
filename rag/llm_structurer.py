@@ -87,6 +87,87 @@ def structure_news_event(news_item: dict) -> dict:
         return result
 
 
+_CITIZEN_REPORT_PROMPT = """你是一個專業的空氣污染事件判讀系統。
+以下是民眾在 App 上提交的污染回報，請判斷這份回報是否屬於真實的空氣污染事件。
+
+回報地點：{location}
+事件類別：{category}
+民眾描述：{description}
+
+判斷規則：
+- 具備具體污染描述（如「燃燒異味」、「濃煙」、「刺鼻化學味」、「揚塵」）→ is_confirmed = true
+- 描述模糊、情緒性發言、測試內容、無關文字 → is_confirmed = false
+- 即使描述簡短，只要有明確的污染特徵就視為有效
+
+請以 JSON 格式回傳（所有欄位都必須填寫，不確定的填 null）：
+{{
+  "is_confirmed_pollution_event": <true 或 false>,
+  "event_type": "<fire|chemical|dust|odor|vehicle|factory|general_air_quality|unknown>",
+  "pollution_category": "<PM2.5|PM10|VOC|CO|SO2|NOx|mixed|unknown>",
+  "severity": "<low|medium|high|critical|unknown>",
+  "location_description": "<從回報擷取的具體地點，若無則填 null>",
+  "affected_radius_estimate": "<預估影響範圍，若無法判斷填 null>",
+  "confidence": "<high|medium|low>",
+  "filter_reason": "<若 is_confirmed=false，說明過濾原因；否則填 null>"
+}}
+
+嚴格回傳 JSON，不要有任何其他文字。"""
+
+
+def analyze_citizen_report(report: dict) -> dict:
+    """
+    專為民眾回報設計的語意分析。
+    接收含 location / category / description 的 dict，
+    回傳原始 dict 加上 'structured_event' 欄位。
+    """
+    location    = report.get("region", report.get("location", ""))
+    category    = report.get("category", "")
+    description = report.get("summary", report.get("description", ""))
+
+    prompt = _CITIZEN_REPORT_PROMPT.format(
+        location=location,
+        category=category,
+        description=description,
+    )
+
+    try:
+        response = _client.chat.completions.create(
+            model="openai/gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "你是空氣污染事件判讀專家，只輸出 JSON，不輸出任何其他文字。",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0,
+            max_tokens=300,
+        )
+
+        raw_json = response.choices[0].message.content.strip()
+        if raw_json.startswith("```"):
+            raw_json = raw_json.split("```")[1]
+            if raw_json.startswith("json"):
+                raw_json = raw_json[4:]
+            raw_json = raw_json.strip()
+
+        structured = json.loads(raw_json)
+        result = dict(report)
+        result["structured_event"] = structured
+        return result
+
+    except json.JSONDecodeError as e:
+        print(f"⚠️  民眾回報 LLM 回傳無效 JSON：{description[:30]} | 錯誤：{e}")
+        result = dict(report)
+        result["structured_event"] = None
+        return result
+    except Exception as e:
+        print(f"⚠️  民眾回報語意分析失敗：{description[:30]} | 錯誤：{e}")
+        result = dict(report)
+        result["structured_event"] = None
+        return result
+
+
 def structure_news_batch(news_list: list[dict]) -> list[dict]:
     """
     批次處理新聞清單，回傳每筆加上 structured_event 欄位的清單。

@@ -5,6 +5,8 @@ import requests
 import os
 import urllib3
 import json
+from datetime import datetime, timezone, timedelta
+from rag.llm_structurer import analyze_citizen_report
 
 # 載入 .env 環境變數（本機開發用，Docker 透過 docker-compose 傳入）
 try:
@@ -269,6 +271,92 @@ def get_weather(county: str = None):
             "message": f"連線錯誤: {str(e)}",
             "records": []
         }
+
+def _load_user_reports() -> list:
+    file_path = os.path.join(os.path.dirname(__file__), "crawler", "user_reports.json")
+    if not os.path.exists(file_path):
+        return []
+    with open(file_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/user_reports")
+def get_user_reports():
+    """回傳 24 小時內的民眾回報。"""
+    try:
+        reports = _load_user_reports()
+        cutoff = datetime.now() - timedelta(hours=24)
+        recent = [
+            r for r in reports
+            if datetime.fromisoformat(r.get("timestamp", "1970-01-01")) >= cutoff
+        ]
+        return {"status": "success", "records": recent}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "records": []}
+
+
+@app.get("/api/user_reports/history")
+def get_user_reports_history():
+    """回傳所有歷史民眾回報（後台用）。"""
+    try:
+        reports = _load_user_reports()
+        return {"status": "success", "records": reports}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "records": []}
+
+
+class ReportRequest(BaseModel):
+    location: str
+    category: str
+    description: str
+    latitude: float | None = None
+    longitude: float | None = None
+
+
+@app.post("/api/report")
+def submit_report(req: ReportRequest):
+    now = datetime.now().isoformat()
+    report_item = {
+        "source": "民眾回報",
+        "region": req.location,
+        "category": req.category,
+        "title": f"[{req.category}] {req.location}",
+        "summary": req.description,
+        "url": "",
+        "published_at": now,
+        "timestamp": now,
+        "latitude": req.latitude,
+        "longitude": req.longitude,
+    }
+
+    # 使用民眾回報專用語意分析
+    structured = analyze_citizen_report(report_item)
+    se = structured.get("structured_event")
+    is_confirmed = se.get("is_confirmed_pollution_event", False) if se else False
+
+    crawler_dir = os.path.join(os.path.dirname(__file__), "crawler")
+
+    if is_confirmed:
+        # 確認污染事件 → 存入 user_reports.json（參與後續 VGI 熱點分析）
+        target_path = os.path.join(crawler_dir, "user_reports.json")
+    else:
+        # 無效回報 → 存入 user_reports_filtered.json（僅存檔記錄）
+        target_path = os.path.join(crawler_dir, "user_reports_filtered.json")
+
+    records = []
+    if os.path.exists(target_path):
+        with open(target_path, "r", encoding="utf-8") as f:
+            records = json.load(f)
+    records.insert(0, structured)
+    with open(target_path, "w", encoding="utf-8") as f:
+        json.dump(records, f, ensure_ascii=False, indent=2)
+
+    return {
+        "status": "success",
+        "message": "回報已送出，感謝您的通報。",
+        "is_confirmed": is_confirmed,
+        "structured_event": se,
+    }
 
 
 @app.get("/api/news")
