@@ -23,3 +23,7 @@ crawler/news.db
 
 # ChromaDB 向量資料庫
 rag/chroma_db/
+
+# Firebase 服務帳戶金鑰（絕對不能上傳）
+serviceAccountKey.json
+*firebase-adminsdk*.json
