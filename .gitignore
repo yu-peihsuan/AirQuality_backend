@@ -18,6 +18,7 @@ env/
 # 爬蟲與民眾回報產生的資料檔案
 crawler/scraped_news.json
 crawler/user_reports.json
+crawler/user_reports_filtered.json
 crawler/news.db
 
 # ChromaDB 向量資料庫
