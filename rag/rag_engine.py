@@ -2,7 +2,6 @@
 # RAG 引擎：混合式檢索 + GPT-4o-mini 生成個人化空氣品質建議
 
 import os
-import math
 from openai import OpenAI
 from rag.embedder import query_knowledge_base
 from rag.health_rules import get_rule_by_aqi
@@ -22,6 +21,7 @@ _ADVICE_PROMPT = """你是一個空氣品質健康顧問系統，請根據以下
 - PM2.5：{pm25} µg/m³
 - 風速：{wind_speed} m/s，風向：{wind_direction}°
 - 附近污染事件：{event_description}
+- 下風處警告：{downwind_warning}
 
 ## 用戶健康檔案
 - 年齡層：{age_group}
@@ -39,7 +39,7 @@ _ADVICE_PROMPT = """你是一個空氣品質健康顧問系統，請根據以下
 3. 若 AQI 良好且無污染事件，給予正向鼓勵（適合外出運動等）。
 4. 若 AQI 超標或有污染事件，給出**具體、可執行**的防護建議。
 5. 特別考量用戶的健康狀況，給出個人化提醒。
-6. 長度控制在 **1~2 句話**，精簡有力，不要廢話。
+6. 長度控制在 **1 句話以內**，20~35 字，精簡有力，不要廢話。
 7. 不要用「根據健康指引」、「根據 WHO 建議」等制式開場白。"""
 
 
@@ -87,6 +87,7 @@ def generate_advice(
     wind_direction: float,
     user_profile: dict,
     event_description: str = "無",
+    is_downwind: bool = False,
 ) -> dict:
     """
     核心 RAG 生成函式。
@@ -127,6 +128,7 @@ def generate_advice(
 
     # 4. 組合個人化 Prompt
     profile_desc = _describe_user_profile(user_profile)
+    downwind_warning = "是，您目前位於污染熱點的下風處，污染物可能隨風飄向您所在位置，請特別注意防護。" if is_downwind else "否"
     prompt = _ADVICE_PROMPT.format(
         county=county,
         aqi=aqi,
@@ -135,6 +137,7 @@ def generate_advice(
         wind_speed=round(wind_speed, 1) if wind_speed else "未知",
         wind_direction=round(wind_direction) if wind_direction else "未知",
         event_description=event_description if event_description else "無",
+        downwind_warning=downwind_warning,
         retrieved_knowledge=retrieved_texts or "（無相關健康指引）",
         **profile_desc,
     )
@@ -151,7 +154,7 @@ def generate_advice(
                 {"role": "user", "content": prompt},
             ],
             temperature=0.7,
-            max_tokens=100,
+            max_tokens=60,
         )
 
         advice = response.choices[0].message.content.strip()

@@ -1,6 +1,50 @@
 [
   {
     "source": "民眾回報",
+    "region": "臺北市中山區中山北路二段42巷34號",
+    "category": "車輛廢氣",
+    "title": "[車輛廢氣] 臺北市中山區中山北路二段42巷34號",
+    "summary": "超級臭",
+    "url": "",
+    "published_at": "2026-04-14T16:05:48.937293",
+    "timestamp": "2026-04-14T16:05:48.937293",
+    "latitude": 25.0528233,
+    "longitude": 121.5204017,
+    "structured_event": {
+      "is_confirmed_pollution_event": false,
+      "event_type": "unknown",
+      "pollution_category": "unknown",
+      "severity": "unknown",
+      "location_description": "臺北市中山區中山北路二段42巷34號",
+      "affected_radius_estimate": null,
+      "confidence": "low",
+      "filter_reason": "描述模糊、情緒性發言"
+    }
+  },
+  {
+    "source": "民眾回報",
+    "region": "臺北市中山區中山區南京西路23巷",
+    "category": "工廠排放",
+    "title": "[工廠排放] 臺北市中山區中山區南京西路23巷",
+    "summary": "很臭\n",
+    "url": "",
+    "published_at": "2026-04-14T16:04:47.483479",
+    "timestamp": "2026-04-14T16:04:47.483479",
+    "latitude": 25.0528233,
+    "longitude": 121.5204017,
+    "structured_event": {
+      "is_confirmed_pollution_event": false,
+      "event_type": "unknown",
+      "pollution_category": "unknown",
+      "severity": "unknown",
+      "location_description": "臺北市中山區中山區南京西路23巷",
+      "affected_radius_estimate": null,
+      "confidence": "low",
+      "filter_reason": "描述模糊，僅為情緒性發言，缺乏具體污染特徵"
+    }
+  },
+  {
+    "source": "民眾回報",
     "region": "臺北市中正區愛國西路一號",
     "category": "車輛廢氣",
     "title": "[車輛廢氣] 臺北市中正區愛國西路一號",

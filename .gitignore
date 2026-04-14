@@ -20,6 +20,7 @@ crawler/scraped_news.json
 crawler/user_reports.json
 crawler/user_reports_filtered.json
 crawler/news.db
+crawler/user_reports.db
 
 # ChromaDB 向量資料庫
 rag/chroma_db/

@@ -5,8 +5,14 @@ import requests
 import os
 import urllib3
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from rag.llm_structurer import analyze_citizen_report
+from gis.hotspot_analyzer import analyze_hotspots, check_downwind
+from db.reports_db import (
+    init_db, insert_report, migrate_from_json,
+    get_recent_reports, get_all_reports,
+    get_recent_confirmed_by_county,
+)
 
 # 載入 .env 環境變數（本機開發用，Docker 透過 docker-compose 傳入）
 try:
@@ -22,9 +28,19 @@ from rag.embedder import build_knowledge_base
 from rag.rag_engine import generate_advice
 
 
-# ── Lifespan：啟動時建立知識庫 ────────────────────────────────────────────────
+# ── Lifespan：啟動時初始化 DB 與知識庫 ───────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 1. 初始化民眾回報 DB
+    try:
+        init_db()
+        # 若舊 JSON 尚存在則自動遷移（只跑一次，之後 JSON 可手動刪除）
+        old_json = os.path.join(os.path.dirname(__file__), "crawler", "user_reports.json")
+        migrate_from_json(old_json)
+    except Exception as e:
+        print(f"⚠️  DB 初始化失敗：{e}")
+
+    # 2. 初始化 RAG 知識庫
     print("🚀 FastAPI 啟動中，正在初始化健康規則知識庫...")
     try:
         build_knowledge_base(force_rebuild=False)
@@ -120,6 +136,34 @@ def _fetch_wind_for_county(county: str) -> dict:
     except Exception as e:
         print(f"氣象查詢失敗：{e}")
         return {"wind_speed": 0.0, "wind_direction": 0.0}
+
+
+_TYPE_ZH = {
+    "fire": "火災/濃煙", "chemical": "化學異味", "dust": "揚塵",
+    "odor": "異味", "vehicle": "車輛廢氣", "factory": "工廠排放",
+    "general_air_quality": "空氣品質不良",
+}
+
+
+def _fetch_user_report_events(county: str) -> str:
+    """從 DB 取得近 24 小時、同縣市的確認回報事件描述"""
+    try:
+        recent = get_recent_confirmed_by_county(normalize_name(county), hours=24)
+        if not recent:
+            return "無"
+
+        events = []
+        for r in recent:
+            ev_type = _TYPE_ZH.get(r.get("event_type", ""), r.get("category", "污染"))
+            severity = r.get("severity", "")
+            desc = r.get("summary", "")[:30]
+            label = f"民眾回報{ev_type}" + (f"（{severity}）" if severity else "") + f"：{desc}"
+            events.append(label)
+
+        return "、".join(events[:2])
+    except Exception as e:
+        print(f"用戶回報事件查詢失敗：{e}")
+        return "無"
 
 
 def _fetch_recent_events_for_region(region: str) -> str:
@@ -272,35 +316,20 @@ def get_weather(county: str = None):
             "records": []
         }
 
-def _load_user_reports() -> list:
-    file_path = os.path.join(os.path.dirname(__file__), "crawler", "user_reports.json")
-    if not os.path.exists(file_path):
-        return []
-    with open(file_path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
 @app.get("/api/user_reports")
 def get_user_reports():
     """回傳 24 小時內的民眾回報。"""
     try:
-        reports = _load_user_reports()
-        cutoff = datetime.now() - timedelta(hours=24)
-        recent = [
-            r for r in reports
-            if datetime.fromisoformat(r.get("timestamp", "1970-01-01")) >= cutoff
-        ]
-        return {"status": "success", "records": recent}
+        return {"status": "success", "records": get_recent_reports(hours=24)}
     except Exception as e:
         return {"status": "error", "message": str(e), "records": []}
 
 
 @app.get("/api/user_reports/history")
 def get_user_reports_history():
-    """回傳所有歷史民眾回報（後台用）。"""
+    """回傳所有歷史民眾回報。"""
     try:
-        reports = _load_user_reports()
-        return {"status": "success", "records": reports}
+        return {"status": "success", "records": get_all_reports()}
     except Exception as e:
         return {"status": "error", "message": str(e), "records": []}
 
@@ -334,22 +363,8 @@ def submit_report(req: ReportRequest):
     se = structured.get("structured_event")
     is_confirmed = se.get("is_confirmed_pollution_event", False) if se else False
 
-    crawler_dir = os.path.join(os.path.dirname(__file__), "crawler")
-
-    if is_confirmed:
-        # 確認污染事件 → 存入 user_reports.json（參與後續 VGI 熱點分析）
-        target_path = os.path.join(crawler_dir, "user_reports.json")
-    else:
-        # 無效回報 → 存入 user_reports_filtered.json（僅存檔記錄）
-        target_path = os.path.join(crawler_dir, "user_reports_filtered.json")
-
-    records = []
-    if os.path.exists(target_path):
-        with open(target_path, "r", encoding="utf-8") as f:
-            records = json.load(f)
-    records.insert(0, structured)
-    with open(target_path, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
+    # 所有回報（確認＆未確認）都存入 SQLite，is_confirmed 欄位區分
+    insert_report(structured)
 
     return {
         "status": "success",
@@ -423,10 +438,42 @@ def get_rag_advice(req: RagAdviceRequest):
         wind_speed = wind_data.get("wind_speed", 0.0)
         wind_direction = wind_data.get("wind_direction", 0.0)
 
-        # 3. 取得近期污染事件（從已結構化的新聞）
-        event_desc = _fetch_recent_events_for_region(county)
+        # 3. 取得近期污染事件（新聞 + 民眾回報，合併）
+        news_event_desc   = _fetch_recent_events_for_region(county)
+        report_event_desc = _fetch_user_report_events(county)
+        all_events = [e for e in [news_event_desc, report_event_desc] if e and e != "無"]
+        event_desc = "、".join(all_events) if all_events else "無"
 
-        # 4. 呼叫 RAG 引擎生成建議
+        # 4. 下風處判斷（須有使用者 GPS 座標且有風）
+        is_downwind = False
+        downwind_sources: list[dict] = []
+
+        if req.latitude is not None and req.longitude is not None and wind_speed >= 0.5:
+            hotspots = analyze_hotspots(min_reports=2, cluster_radius_km=1.5, top_n=10)
+            if hotspots:
+                downwind_sources = check_downwind(
+                    user_lat=req.latitude,
+                    user_lng=req.longitude,
+                    wind_direction_deg=wind_direction,
+                    hotspots=hotspots,
+                )
+                if downwind_sources:
+                    is_downwind = True
+                    src = downwind_sources[0]
+                    _TYPE_ZH = {
+                        "fire": "火災/濃煙", "chemical": "化學異味", "dust": "揚塵",
+                        "odor": "異味", "vehicle": "車輛廢氣", "factory": "工廠排放",
+                        "general_air_quality": "空氣品質不良",
+                    }
+                    type_label = _TYPE_ZH.get(src.get("dominant_type", ""), "污染源")
+                    dw_desc = (
+                        f"您目前位於{type_label}污染熱點的下風處"
+                        f"（距離約 {src['distance_km']} km，"
+                        f"強度 {int(src['intensity'] * 100)}%）"
+                    )
+                    event_desc = f"{event_desc}；{dw_desc}" if event_desc != "無" else dw_desc
+
+        # 5. 呼叫 RAG 引擎生成建議
         result = generate_advice(
             county=county,
             aqi=aqi,
@@ -435,6 +482,7 @@ def get_rag_advice(req: RagAdviceRequest):
             wind_direction=wind_direction,
             user_profile=req.user_profile.model_dump(),
             event_description=event_desc,
+            is_downwind=is_downwind,
         )
 
         return {
@@ -447,6 +495,8 @@ def get_rag_advice(req: RagAdviceRequest):
             "aqi_level": result["aqi_level"],
             "advice": result["advice"],
             "event_context": event_desc,
+            "is_downwind": is_downwind,
+            "downwind_sources": downwind_sources[:3],
             "retrieved_rules": result["retrieved_rules"],
             "rag_error": result.get("error"),
         }
@@ -458,3 +508,26 @@ def get_rag_advice(req: RagAdviceRequest):
             "message": f"RAG 建議生成失敗: {str(e)}",
             "advice": None,
         }
+
+
+# ── GIS 熱點分析 Endpoint ─────────────────────────────────────────────────────
+
+@app.get("/api/hotspots")
+def get_hotspots(min_reports: int = 2, radius_km: float = 1.5, top_n: int = 10):
+    """
+    分析民眾回報的空間熱點。
+    回傳密度最高的前 N 個污染熱點座標與強度。
+    """
+    try:
+        hotspots = analyze_hotspots(
+            min_reports=min_reports,
+            cluster_radius_km=radius_km,
+            top_n=top_n,
+        )
+        return {
+            "status": "success",
+            "count": len(hotspots),
+            "hotspots": hotspots,
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "hotspots": []}

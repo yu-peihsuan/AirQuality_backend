@@ -7,4 +7,6 @@ apscheduler
 openai
 chromadb
 tiktoken
-python-dotenv
+python-dotenv
+numpy
+scipy
