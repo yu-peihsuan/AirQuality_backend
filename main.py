@@ -15,6 +15,8 @@ from db.reports_db import (
     get_recent_reports, get_all_reports,
     get_recent_confirmed_by_county,
 )
+from fcm.token_store import register_token, get_tokens_by_county, get_all_tokens
+from fcm.fcm_sender import send_multicast
 
 # 載入 .env 環境變數（本機開發用，Docker 透過 docker-compose 傳入）
 try:
@@ -512,6 +514,27 @@ def get_rag_advice(req: RagAdviceRequest):
         }
 
 
+# ── GIS 熱點分析 Endpoint ─────────────────────────────────────────────────────
+
+@app.get("/api/hotspots")
+def get_hotspots(min_reports: int = 2, radius_km: float = 1.5, top_n: int = 10):
+    """
+    分析民眾回報的空間熱點。
+    回傳密度最高的前 N 個污染熱點座標與強度。
+    """
+    try:
+        hotspots = analyze_hotspots(
+            min_reports=min_reports,
+            cluster_radius_km=radius_km,
+            top_n=top_n,
+        )
+        return {
+            "status": "success",
+            "count": len(hotspots),
+            "hotspots": hotspots,
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "hotspots": []}
 # ── FCM 推播 Endpoints ────────────────────────────────────────────────────────
 
 class TokenRegisterRequest(BaseModel):
