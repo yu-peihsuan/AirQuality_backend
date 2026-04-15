@@ -9,4 +9,7 @@ chromadb
 tiktoken
 python-dotenv
 numpy
-scipy
+scipy
+
+firebase-admin
+
