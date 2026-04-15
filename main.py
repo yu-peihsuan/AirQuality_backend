@@ -7,6 +7,8 @@ import urllib3
 import json
 from datetime import datetime
 from rag.llm_structurer import analyze_citizen_report
+from fcm.token_store import register_token, get_tokens_by_county, get_all_tokens
+from fcm.fcm_sender import send_multicast
 from gis.hotspot_analyzer import analyze_hotspots, check_downwind
 from db.reports_db import (
     init_db, insert_report, migrate_from_json,
@@ -508,6 +510,67 @@ def get_rag_advice(req: RagAdviceRequest):
             "message": f"RAG 建議生成失敗: {str(e)}",
             "advice": None,
         }
+
+
+# ── FCM 推播 Endpoints ────────────────────────────────────────────────────────
+
+class TokenRegisterRequest(BaseModel):
+    token: str
+    county: str = ""
+
+
+@app.post("/api/fcm/register")
+def register_fcm_token(req: TokenRegisterRequest):
+    """App 啟動時上傳裝置 FCM Token 與所在縣市。"""
+    try:
+        register_token(req.token, req.county)
+        return {"status": "success", "message": "Token 已註冊"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+class PushRequest(BaseModel):
+    county: str | None = None   # 指定縣市；None 表示推播全部裝置
+    title: str
+    body: str
+
+
+@app.post("/api/fcm/push")
+def push_notification(req: PushRequest):
+    """手動觸發推播（測試用 / 後台管理用）。"""
+    try:
+        tokens = get_tokens_by_county(req.county) if req.county else get_all_tokens()
+        if not tokens:
+            return {"status": "success", "message": "沒有符合條件的裝置", "sent": 0}
+        result = send_multicast(tokens, req.title, req.body)
+        return {"status": "success", **result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/fcm/test")
+def test_push():
+    """測試推播：發送一則假警報給所有已註冊裝置。"""
+    try:
+        tokens = get_all_tokens()
+        if not tokens:
+            return {
+                "status": "error",
+                "message": "尚無已註冊的裝置，請先開啟 App 讓 Token 自動上傳"
+            }
+        result = send_multicast(
+            tokens,
+            title="⚠️ 空氣品質警報（測試）",
+            body="台北市 AQI 已超過 150，建議減少戶外活動並配戴口罩。",
+            data={"type": "test"}
+        )
+        return {
+            "status": "success",
+            "message": f"推播已發送給 {len(tokens)} 台裝置",
+            **result
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 # ── GIS 熱點分析 Endpoint ─────────────────────────────────────────────────────
