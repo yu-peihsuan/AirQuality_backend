@@ -78,32 +78,29 @@ def is_realtime_event(title: str, summary: str = "") -> bool:
         return False
     return True
 
-def is_within_last_3_days(published_str):
-    """檢查新聞發布時間是否在過去 3 天內"""
+NEWS_RETENTION_HOURS = 48  # 新聞保留時間（小時）
+
+def is_within_retention(published_str):
+    """檢查新聞發布時間是否在保留期限內（預設 48 小時）"""
     if not published_str:
         return False
     try:
         import email.utils
-        # 優先用 email.utils 解析 RFC 2822 格式（RSS 標準格式）
-        # e.g. "Tue, 31 Mar 2026 07:00:00 GMT"
         parsed = email.utils.parsedate_to_datetime(published_str)
         pub_dt = parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
         now = datetime.utcnow()
-        diff = now - pub_dt
-        return diff <= timedelta(days=3)
+        return (now - pub_dt) <= timedelta(hours=NEWS_RETENTION_HOURS)
     except Exception:
         pass
     try:
-        # 備用：ISO 8601 格式 e.g. "2026-03-31T07:00:00Z"
         cleaned = published_str.replace("Z", "+00:00")
         from datetime import timezone
         parsed = datetime.fromisoformat(cleaned)
         pub_dt = parsed.astimezone(timezone.utc).replace(tzinfo=None)
-        now = datetime.utcnow()
-        return (now - pub_dt) <= timedelta(days=3)
+        return (datetime.utcnow() - pub_dt) <= timedelta(hours=NEWS_RETENTION_HOURS)
     except Exception as e:
         print(f"時間解析失敗，略過此筆: {published_str} | {e}")
-        return False  # 解析失敗 → 拒絕，避免舊文混入
+        return False
 
 # 從 CityCountyData.json 動態載入 DISTRICTS
 # JSON 結構: [{"CityName": "臺北市", "AreaList": [{"AreaName": "中正區"}, ...]}, ...]
@@ -232,7 +229,7 @@ def fetch_pts_news():
                 print(f"  ⏭ 規則過濾移除（公視）：{title[:40]}")
                 continue
                  
-            if not is_within_last_3_days(published):
+            if not is_within_retention(published):
                 continue
                 
             region = extract_region(title + " " + summary)
@@ -281,7 +278,7 @@ def fetch_yahoo_news():
                     print(f"  ⏭ 規則過濾移除（Yahoo）：{title[:40]}")
                     continue
                      
-                if not is_within_last_3_days(published):
+                if not is_within_retention(published):
                     continue
                 
                 # Yahoo RSS summary 常含有 html 標籤，用 BeautifulSoup 清理
@@ -343,7 +340,7 @@ def fetch_google_news():
                 title = parts[0]
                 source = parts[1]
                 
-            if not is_within_last_3_days(published):
+            if not is_within_retention(published):
                 continue
                 
             region = extract_region(title)  
@@ -413,6 +410,17 @@ def save_to_db(news_list):
     print(f"💾 已將 {inserted} 筆新資料寫入資料庫: {DB_PATH}")
     return inserted
 
+def cleanup_old_news():
+    """刪除資料庫中超過保留期限的新聞"""
+    conn = sqlite3.connect(DB_PATH)
+    cutoff = (datetime.utcnow() - timedelta(hours=NEWS_RETENTION_HOURS)).isoformat()
+    cursor = conn.execute("DELETE FROM news WHERE timestamp < ?", (cutoff,))
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    if deleted:
+        print(f"🗑️  已清除 {deleted} 筆過期新聞（超過 {NEWS_RETENTION_HOURS} 小時）")
+
 def run_scraper(enable_llm_structuring: bool = True):
     """執行爬蟲並印出結果"""
     all_news = []
@@ -452,9 +460,10 @@ if __name__ == "__main__":
     
     results = run_scraper()
     
-    # 寫入 SQLite 資料庫
+    # 寫入 SQLite 資料庫，並清除過期資料
     init_db()
     save_to_db(results)
+    cleanup_old_news()
     
     # 同時也存成 JSON 方便檢視
     output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scraped_news.json')

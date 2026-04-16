@@ -6,18 +6,16 @@ import json
 import firebase_admin
 from firebase_admin import credentials, messaging
 
-_initialized = False
-
 def _init_firebase():
-    global _initialized
-    if _initialized:
-        return
-    key_path = os.path.join(os.path.dirname(__file__), "..", "airquality-4d1b6-firebase-adminsdk-fbsvc-176142d1b9.json")
-    if not os.path.exists(key_path):
-        raise FileNotFoundError(f"Firebase 金鑰檔案不存在：{key_path}")
-    cred = credentials.Certificate(key_path)
-    firebase_admin.initialize_app(cred)
-    _initialized = True
+    """確保 Firebase 已初始化（多模組共用，只初始化一次）。"""
+    try:
+        firebase_admin.get_app()
+    except ValueError:
+        key_path = os.path.join(os.path.dirname(__file__), "..", "airquality-4d1b6-firebase-adminsdk-fbsvc-176142d1b9.json")
+        if not os.path.exists(key_path):
+            raise FileNotFoundError(f"Firebase 金鑰檔案不存在：{key_path}")
+        cred = credentials.Certificate(key_path)
+        firebase_admin.initialize_app(cred)
 
 
 def send_notification(token: str, title: str, body: str, data: dict = None) -> bool:

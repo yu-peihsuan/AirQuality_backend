@@ -5,13 +5,14 @@ import requests
 import os
 import urllib3
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from apscheduler.schedulers.background import BackgroundScheduler
 from rag.llm_structurer import analyze_citizen_report
 from fcm.token_store import register_token, get_tokens_by_county, get_all_tokens
 from fcm.fcm_sender import send_multicast
 from gis.hotspot_analyzer import analyze_hotspots, check_downwind
 from db.reports_db import (
-    init_db, insert_report, migrate_from_json,
+    init_db, insert_report,
     get_recent_reports, get_all_reports,
     get_recent_confirmed_by_county,
 )
@@ -32,15 +33,31 @@ from rag.embedder import build_knowledge_base
 from rag.rag_engine import generate_advice
 
 
+# ── 新聞爬蟲排程任務 ─────────────────────────────────────────────────────────
+def _scraper_job():
+    """每 6 小時執行一次：爬取新聞、存入 DB、清除過期資料、更新 JSON。"""
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 排程爬蟲啟動...")
+    try:
+        from crawler.news_scraper import run_scraper, init_db as news_init_db, save_to_db, cleanup_old_news
+        import json, os
+        results = run_scraper()
+        news_init_db()
+        save_to_db(results)
+        cleanup_old_news()
+        output_path = os.path.join(os.path.dirname(__file__), "crawler", "scraped_news.json")
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(results, f, ensure_ascii=False, indent=4)
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✅ 排程爬蟲完成，共 {len(results)} 筆")
+    except Exception as e:
+        print(f"⚠️  排程爬蟲失敗：{e}")
+
+
 # ── Lifespan：啟動時初始化 DB 與知識庫 ───────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 1. 初始化民眾回報 DB
     try:
         init_db()
-        # 若舊 JSON 尚存在則自動遷移（只跑一次，之後 JSON 可手動刪除）
-        old_json = os.path.join(os.path.dirname(__file__), "crawler", "user_reports.json")
-        migrate_from_json(old_json)
     except Exception as e:
         print(f"⚠️  DB 初始化失敗：{e}")
 
@@ -50,7 +67,16 @@ async def lifespan(app: FastAPI):
         build_knowledge_base(force_rebuild=False)
     except Exception as e:
         print(f"⚠️  知識庫初始化失敗（服務仍可使用，但 RAG 功能受限）：{e}")
+
+    # 3. 啟動新聞爬蟲排程（每 6 小時）
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(_scraper_job, "interval", hours=6, id="news_scraper")
+    scheduler.start()
+    print("⏰ 新聞爬蟲排程已啟動（每 6 小時執行一次）")
+
     yield
+
+    scheduler.shutdown(wait=False)
     print("🛑 FastAPI 關閉中...")
 
 
@@ -392,6 +418,25 @@ def get_news(region: str = None):
 
         with open(file_path, "r", encoding="utf-8") as f:
             news_data = json.load(f)
+
+        # 只保留 48 小時內的新聞
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        def is_fresh(n):
+            ts = n.get("timestamp") or n.get("published_at", "")
+            if not ts:
+                return False
+            try:
+                import email.utils
+                parsed = email.utils.parsedate_to_datetime(ts)
+                return parsed.astimezone(timezone.utc) >= cutoff
+            except Exception:
+                pass
+            try:
+                parsed = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                return parsed.astimezone(timezone.utc) >= cutoff
+            except Exception:
+                return False
+        news_data = [n for n in news_data if is_fresh(n)]
 
         if region:
             filtered_news = []
