@@ -10,7 +10,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from rag.llm_structurer import analyze_citizen_report
 from fcm.token_store import register_token, get_tokens_by_county, get_all_tokens
 from fcm.fcm_sender import send_multicast
-from gis.hotspot_analyzer import analyze_hotspots, check_downwind
+from gis.hotspot_analyzer import analyze_hotspots, check_downwind, get_affected_counties, COUNTY_CENTROIDS
 from db.reports_db import (
     init_db, insert_report,
     get_recent_reports, get_all_reports,
@@ -86,6 +86,65 @@ app = FastAPI(lifespan=lifespan)
 def normalize_name(name: str) -> str:
     """將「臺」統一轉為「台」，使兩者在比對時視為相同。"""
     return name.replace("臺", "台") if name else name
+
+
+def _extract_county_from_location(text: str) -> str | None:
+    """從地址文字中提取縣市名稱。"""
+    norm = normalize_name(text or "")
+    for county in COUNTY_CENTROIDS:
+        if normalize_name(county) in norm:
+            return county
+    return None
+
+
+def _fetch_wind_national() -> dict:
+    """取得全台平均風速風向（供熱點分析用）。"""
+    API_KEY = os.getenv("CWA_API_KEY", "")
+    url = (
+        f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0001-001"
+        f"?Authorization={API_KEY}&format=JSON"
+    )
+    try:
+        resp = requests.get(url, verify=False, timeout=10)
+        data = resp.json()
+        stations = data.get("records", {}).get("Station", [])
+        speeds, directions = [], []
+        for s in stations:
+            we = s.get("WeatherElement", {})
+            try:
+                speeds.append(float(we.get("WindSpeed", 0) or 0))
+                directions.append(float(we.get("WindDirection", 0) or 0))
+            except (ValueError, TypeError):
+                pass
+        if speeds:
+            return {
+                "wind_speed": round(sum(speeds) / len(speeds), 1),
+                "wind_direction": round(sum(directions) / len(directions), 1),
+            }
+    except Exception as e:
+        print(f"全台氣象查詢失敗：{e}")
+    return {"wind_speed": 0.0, "wind_direction": 0.0}
+
+
+def _geocode_address(address: str) -> tuple | None:
+    """Google Maps Geocoding API：地址文字 → (lat, lng)，取得失敗回傳 None。"""
+    api_key = os.getenv("MAPS_API_KEY", "")
+    if not api_key:
+        return None
+    try:
+        encoded = requests.utils.quote(address)
+        url = (
+            f"https://maps.googleapis.com/maps/api/geocode/json"
+            f"?address={encoded}&key={api_key}&language=zh-TW"
+        )
+        resp = requests.get(url, timeout=10)
+        data = resp.json()
+        if data.get("status") == "OK":
+            loc = data["results"][0]["geometry"]["location"]
+            return (loc["lat"], loc["lng"])
+    except Exception as e:
+        print(f"Geocoding 失敗：{e}")
+    return None
 
 
 # ── 輔助函式：取得縣市的 AQI 與氣象資料 ────────────────────────────────────────
@@ -375,6 +434,15 @@ class ReportRequest(BaseModel):
 @app.post("/api/report")
 def submit_report(req: ReportRequest):
     now = datetime.now().isoformat()
+
+    # 座標為 null 時，嘗試用 Google Maps API 將地址文字轉換為座標
+    lat = req.latitude
+    lng = req.longitude
+    if lat is None or lng is None:
+        coords = _geocode_address(req.location)
+        if coords:
+            lat, lng = coords
+
     report_item = {
         "source": "民眾回報",
         "region": req.location,
@@ -384,8 +452,8 @@ def submit_report(req: ReportRequest):
         "url": "",
         "published_at": now,
         "timestamp": now,
-        "latitude": req.latitude,
-        "longitude": req.longitude,
+        "latitude": lat,
+        "longitude": lng,
     }
 
     # 使用民眾回報專用語意分析
@@ -395,6 +463,40 @@ def submit_report(req: ReportRequest):
 
     # 所有回報（確認＆未確認）都存入 SQLite，is_confirmed 欄位區分
     insert_report(structured)
+
+    # 確認為污染事件時，自動推播給受影響縣市的裝置
+    if is_confirmed and lat is not None and lng is not None:
+        try:
+            county = _extract_county_from_location(req.location) or ""
+            wind_data = _fetch_wind_for_county(county) if county else _fetch_wind_national()
+            wind_speed = wind_data.get("wind_speed", 0.0)
+            wind_direction = wind_data.get("wind_direction", 0.0)
+
+            affected = get_affected_counties(lat, lng, wind_speed, wind_direction)
+            event_type = (se.get("event_type") or "general_air_quality") if se else "general_air_quality"
+            type_label = _TYPE_ZH.get(event_type, "污染事件")
+
+            if wind_speed < 1.0:
+                body = (f"{req.location} 發生{type_label}，目前近乎無風，"
+                        f"污染物擴散條件差，周邊地區請注意空氣品質。")
+            else:
+                body = (f"{req.location} 發生{type_label}，"
+                        f"下風處地區請注意空氣品質，建議減少戶外活動。")
+
+            tokens = list({
+                t for c in affected
+                for t in get_tokens_by_county(normalize_name(c))
+            })
+            if tokens:
+                send_multicast(
+                    tokens,
+                    title=f"⚠️ 空氣污染警報：{type_label}",
+                    body=body,
+                    data={"type": event_type},
+                )
+                print(f"✅ FCM 推播：{type_label} @ {req.location}，推送 {len(tokens)} 台裝置")
+        except Exception as e:
+            print(f"⚠️ FCM 推播失敗：{e}")
 
     return {
         "status": "success",
@@ -505,6 +607,7 @@ def get_rag_advice(req: RagAdviceRequest):
                     user_lng=req.longitude,
                     wind_direction_deg=wind_direction,
                     hotspots=hotspots,
+                    wind_speed=wind_speed,
                 )
                 if downwind_sources:
                     is_downwind = True
@@ -564,14 +667,17 @@ def get_rag_advice(req: RagAdviceRequest):
 @app.get("/api/hotspots")
 def get_hotspots(min_reports: int = 2, radius_km: float = 1.5, top_n: int = 10):
     """
-    分析民眾回報的空間熱點。
-    回傳密度最高的前 N 個污染熱點座標與強度。
+    分析民眾回報的空間熱點，結合當前風況判斷影響範圍。
+    無風時自動擴大警戒半徑，並標記擴散條件差。
     """
     try:
+        wind = _fetch_wind_national()
         hotspots = analyze_hotspots(
             min_reports=min_reports,
             cluster_radius_km=radius_km,
             top_n=top_n,
+            wind_speed=wind["wind_speed"],
+            wind_direction=wind["wind_direction"],
         )
         return {
             "status": "success",

@@ -115,11 +115,13 @@ def get_all_reports() -> list[dict]:
     return [_row_to_dict(r) for r in rows]
 
 
-def get_confirmed_reports() -> list[dict]:
-    """回傳所有已確認污染事件（供熱點分析用）。"""
+def get_confirmed_reports(hours: int = 24) -> list[dict]:
+    """回傳近 N 小時已確認污染事件（供熱點分析用）。"""
+    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
     with _get_conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM user_reports WHERE is_confirmed = 1 ORDER BY timestamp DESC"
+            "SELECT * FROM user_reports WHERE is_confirmed = 1 AND timestamp >= ? ORDER BY timestamp DESC",
+            (cutoff,),
         ).fetchall()
     return [_row_to_dict(r) for r in rows]
 
