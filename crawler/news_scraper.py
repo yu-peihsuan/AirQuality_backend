@@ -421,6 +421,44 @@ def cleanup_old_news():
     if deleted:
         print(f"🗑️  已清除 {deleted} 筆過期新聞（超過 {NEWS_RETENTION_HOURS} 小時）")
 
+def _geocode_news_events(news_list: list) -> list:
+    """對確認的污染事件進行地理編碼，加入 latitude / longitude。"""
+    api_key = os.getenv("MAPS_API_KEY", "")
+    if not api_key:
+        print("⚠️  MAPS_API_KEY 未設定，跳過新聞地理編碼")
+        return news_list
+
+    for news in news_list:
+        se = news.get("structured_event")
+        if not se or not se.get("is_confirmed_pollution_event"):
+            continue
+
+        # 優先用 LLM 萃取的精確地點，其次用 region
+        location_text = se.get("location_description") or news.get("region", "")
+        if not location_text or location_text == "台灣 (未指明特定縣市)":
+            continue
+
+        try:
+            encoded = requests.utils.quote(location_text)
+            url = (
+                f"https://maps.googleapis.com/maps/api/geocode/json"
+                f"?address={encoded}&key={api_key}&language=zh-TW&region=TW"
+            )
+            resp = requests.get(url, timeout=10)
+            data = resp.json()
+            if data.get("status") == "OK":
+                loc = data["results"][0]["geometry"]["location"]
+                news["latitude"] = loc["lat"]
+                news["longitude"] = loc["lng"]
+                print(f"  📍 Geocoded: {location_text} → ({loc['lat']:.4f}, {loc['lng']:.4f})")
+            else:
+                print(f"  ⚠️  Geocoding 無結果（{data.get('status')}）：{location_text}")
+        except Exception as e:
+            print(f"  ⚠️  Geocoding 失敗：{location_text} | {e}")
+
+    return news_list
+
+
 def run_scraper(enable_llm_structuring: bool = True):
     """執行爬蟲並印出結果"""
     all_news = []
@@ -450,6 +488,7 @@ def run_scraper(enable_llm_structuring: bool = True):
     if enable_llm_structuring and _LLM_STRUCTURING_ENABLED and all_news:
         print("--------------------------------------------------")
         all_news = structure_news_batch(all_news)
+        all_news = _geocode_news_events(all_news)
         print("--------------------------------------------------")
     
     return all_news

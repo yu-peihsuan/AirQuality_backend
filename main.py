@@ -68,11 +68,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️  知識庫初始化失敗（服務仍可使用，但 RAG 功能受限）：{e}")
 
-    # 3. 啟動新聞爬蟲排程（每 6 小時）
+    # 3. 啟動新聞爬蟲排程（每 6 小時，啟動時立刻執行一次）
+    from datetime import datetime as _dt
     scheduler = BackgroundScheduler()
-    scheduler.add_job(_scraper_job, "interval", hours=6, id="news_scraper")
+    scheduler.add_job(_scraper_job, "interval", hours=6, id="news_scraper",
+                      next_run_time=_dt.now())
     scheduler.start()
-    print("⏰ 新聞爬蟲排程已啟動（每 6 小時執行一次）")
+    print("⏰ 新聞爬蟲排程已啟動（每 6 小時執行一次，啟動時立即執行）")
 
     yield
 
