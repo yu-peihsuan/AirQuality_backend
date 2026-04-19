@@ -44,20 +44,69 @@ docker compose restart
 docker compose logs -f backend_api
 ```
 
-#### 後端 API 預設運行位置：
+---
 
-- **系統狀態測試 (Root)**
-  http://localhost:8000/
+### 5 API 端點總覽
 
-- **取得最新空氣品質資料 (AQI Endpoint)**
-  http://localhost:8000/api/air_quality
-  *(可附帶參數測試特定縣市：`?county=臺北市`)*
+後端啟動後可透過以下網址存取。所有 POST 端點可在 **Swagger UI** 互動測試：
+**http://localhost:8000/docs**
 
-- **取得即時天氣資料 (Weather Endpoint)**
-  http://localhost:8000/api/weather
-  *(可附帶參數測試特定縣市：`?county=臺北市`)* 
+#### 基本
 
-### 5 執行爬蟲程式
+| 方法 | 網址 | 說明 |
+|------|------|------|
+| GET | `http://localhost:8000/` | 確認後端是否正常運行 |
+| GET | `http://localhost:8000/docs` | Swagger UI，可測試所有 API |
+
+#### 空氣品質 / 氣象
+
+| 方法 | 網址 | 說明 |
+|------|------|------|
+| GET | `http://localhost:8000/api/air_quality` | 全台 AQI 資料 |
+| GET | `http://localhost:8000/api/air_quality?county=台北市` | 指定縣市 AQI |
+| GET | `http://localhost:8000/api/weather` | 全台氣象資料 |
+| GET | `http://localhost:8000/api/weather?county=台北市` | 指定縣市氣象 |
+
+#### 新聞 / 民眾回報
+
+| 方法 | 網址 | 說明 |
+|------|------|------|
+| GET | `http://localhost:8000/api/news` | 全部爬蟲新聞 |
+| GET | `http://localhost:8000/api/news?region=台北市` | 指定地區新聞 |
+| GET | `http://localhost:8000/api/user_reports` | 24 小時內民眾回報 |
+| GET | `http://localhost:8000/api/user_reports/history` | 所有歷史回報 |
+| POST | `http://localhost:8000/api/report` | 提交民眾回報 |
+
+#### RAG 個人化建議
+
+| 方法 | 網址 | 說明 |
+|------|------|------|
+| POST | `http://localhost:8000/api/rag_advice` | 取得個人化空氣品質建議 |
+
+#### GIS 熱點分析
+
+| 方法 | 網址 | 說明 |
+|------|------|------|
+| GET | `http://localhost:8000/api/hotspots` | 熱點分析結果 |
+| GET | `http://localhost:8000/api/hotspots?min_reports=2&radius_km=1.5&top_n=10` | 自訂參數 |
+
+> **RAG 建議回應新增欄位**（需傳入 `latitude`/`longitude`）：
+> - `is_downwind: bool` — 使用者是否在污染熱點下風處
+> - `downwind_sources: list` — 上風側污染熱點清單（含 `distance_km`、`bearing_to_user`）
+> - 事件描述（`event_context`）現在同時整合新聞爬蟲與民眾回報兩個來源
+
+#### FCM 推播
+
+| 方法 | 網址 | 說明 |
+|------|------|------|
+| GET | `http://localhost:8000/api/fcm/test` | 推播測試通知給所有裝置 |
+| POST | `http://localhost:8000/api/fcm/register` | 裝置註冊 FCM Token |
+| POST | `http://localhost:8000/api/fcm/push` | 手動推播（指定縣市或全部） |
+
+---
+
+### 6 執行爬蟲程式
+
 ```bash
 docker compose exec backend_api python crawler/news_scraper.py
 ```

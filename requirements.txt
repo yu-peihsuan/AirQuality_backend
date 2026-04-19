@@ -8,4 +8,9 @@ openai
 chromadb
 tiktoken
 python-dotenv
-firebase-admin
+firebase-admin
+numpy
+scipy
+
+firebase-admin
+
