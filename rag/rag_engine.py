@@ -160,9 +160,12 @@ def generate_advice(
 
     # 2. RAG 語意檢索：組合查詢語句並檢索最相關規則
     query_text = _build_query_text(aqi, user_profile, event_description)
-
-    # 若有突發事件，額外查詢事件相關規則
     retrieved = query_knowledge_base(query_text, n_results=3)
+
+    # 強制將對應 AQI 等級規則移到第一位（alignment：確保正確等級排序優先）
+    if rule:
+        retrieved = [r for r in retrieved if r["id"] != rule["id"]]
+        retrieved.insert(0, {"id": rule["id"], "document": rule.get("text", "")})
 
     # 若有事件且是火災，強制加入火災規則
     if "火災" in event_description or "濃煙" in event_description or "fire" in event_description.lower():
