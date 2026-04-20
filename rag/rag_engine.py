@@ -4,7 +4,7 @@
 import os
 from openai import OpenAI
 from rag.embedder import query_knowledge_base
-from rag.health_rules import get_rule_by_aqi
+from rag.health_rules import get_rule_by_aqi, get_rule_by_id
 
 _client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY", ""),
@@ -57,6 +57,56 @@ def _describe_user_profile(profile: dict) -> dict:
         "has_cardiovascular": "是" if profile.get("has_cardiovascular") else "否",
         "has_allergy": "是" if profile.get("has_allergy") else "否",
     }
+
+
+def _build_retrieved_context(retrieved: list[dict], profile: dict) -> str:
+    """將檢索結果展開為完整的健康規則內容，依使用者健康狀況選擇對應建議"""
+    is_sensitive = any([
+        profile.get("has_asthma"),
+        profile.get("has_cardiovascular"),
+        profile.get("is_pregnant"),
+        profile.get("age_group") in ("child", "elderly"),
+    ])
+
+    # 依健康狀況對應 special_groups 的 key
+    group_keys = []
+    if profile.get("has_asthma"):
+        group_keys.append("氣喘患者")
+    if profile.get("has_cardiovascular"):
+        group_keys.append("心肺疾病患者")
+    if profile.get("is_pregnant"):
+        group_keys.append("孕婦")
+    if profile.get("age_group") == "child":
+        group_keys.append("孩童")
+    if profile.get("age_group") == "elderly":
+        group_keys.append("老年人")
+
+    parts = []
+    for r in retrieved:
+        full_rule = get_rule_by_id(r["id"])
+        if not full_rule:
+            parts.append(f"- {r['document']}")
+            continue
+
+        section = [f"【{full_rule['level']}】"]
+        if full_rule.get("health_effects"):
+            section.append(f"健康影響：{full_rule['health_effects']}")
+        if is_sensitive and full_rule.get("advice_sensitive"):
+            section.append(f"敏感族群建議：{full_rule['advice_sensitive']}")
+        else:
+            if full_rule.get("advice_general"):
+                section.append(f"一般建議：{full_rule['advice_general']}")
+
+        special = full_rule.get("special_groups", {})
+        for key in group_keys:
+            for sk, sv in special.items():
+                if key in sk or sk in key:
+                    section.append(f"{sk}專屬建議：{sv}")
+                    break
+
+        parts.append("\n".join(section))
+
+    return "\n\n".join(parts)
 
 
 def _build_query_text(aqi: int, profile: dict, event_description: str) -> str:
@@ -121,10 +171,8 @@ def generate_advice(
             if er["id"] not in [r["id"] for r in retrieved]:
                 retrieved.append(er)
 
-    # 3. 整理檢索結果供 Prompt 使用
-    retrieved_texts = "\n".join(
-        [f"- {r['document'][:200]}" for r in retrieved]
-    )
+    # 3. 整理檢索結果供 Prompt 使用（含完整 health_effects / advice / special_groups）
+    retrieved_texts = _build_retrieved_context(retrieved, user_profile)
 
     # 4. 組合個人化 Prompt
     profile_desc = _describe_user_profile(user_profile)
