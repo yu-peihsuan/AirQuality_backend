@@ -100,23 +100,23 @@ def _extract_county_from_location(text: str) -> str | None:
     return None
 
 
-def _fetch_wind_national() -> dict:
-    """取得全台平均風速風向（供熱點分析用）。"""
-    API_KEY = os.getenv("CWA_API_KEY", "")
+def _fetch_wind_national_from_aqi() -> dict:
+    """從環境部 AQI 資料取得全台平均風速風向（供熱點分析用）。"""
+    API_KEY = os.getenv("MOENV_API_KEY", "")
     url = (
-        f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0001-001"
-        f"?Authorization={API_KEY}&format=JSON"
+        f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
+        f"?api_key={API_KEY}&limit=1000&sort=ImportDate desc&format=JSON"
     )
     try:
-        resp = requests.get(url, verify=False, timeout=10)
-        data = resp.json()
-        stations = data.get("records", {}).get("Station", [])
+        resp = requests.get(url, timeout=10)
+        records = resp.json()
+        if not isinstance(records, list):
+            records = records.get("records", [])
         speeds, directions = [], []
-        for s in stations:
-            we = s.get("WeatherElement", {})
+        for r in records:
             try:
-                speeds.append(float(we.get("WindSpeed", 0) or 0))
-                directions.append(float(we.get("WindDirection", 0) or 0))
+                speeds.append(float(r.get("windspeed", 0) or 0))
+                directions.append(float(r.get("winddirection", 0) or 0))
             except (ValueError, TypeError):
                 pass
         if speeds:
@@ -125,7 +125,7 @@ def _fetch_wind_national() -> dict:
                 "wind_direction": round(sum(directions) / len(directions), 1),
             }
     except Exception as e:
-        print(f"全台氣象查詢失敗：{e}")
+        print(f"AQI 全台風速查詢失敗：{e}")
     return {"wind_speed": 0.0, "wind_direction": 0.0}
 
 
@@ -153,7 +153,7 @@ def _geocode_address(address: str) -> tuple | None:
 # ── 輔助函式：取得縣市的 AQI 與氣象資料 ────────────────────────────────────────
 
 def _fetch_aqi_for_county(county: str) -> dict:
-    """內部呼叫：取得縣市最佳代表測站 AQI"""
+    """內部呼叫：取得縣市最佳代表測站 AQI 與風速風向"""
     API_KEY = os.getenv("MOENV_API_KEY", "")
     url = (
         f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
@@ -173,7 +173,6 @@ def _fetch_aqi_for_county(county: str) -> dict:
         if not county_records:
             return {}
 
-        # 取 AQI 最高的測站（最具代表性）
         def safe_aqi(r):
             try:
                 return int(r.get("aqi", 0))
@@ -185,49 +184,12 @@ def _fetch_aqi_for_county(county: str) -> dict:
             "aqi": safe_aqi(best),
             "pm25": float(best.get("pm2.5", 0) or 0),
             "sitename": best.get("sitename", ""),
+            "wind_speed": float(best.get("windspeed", 0) or 0),
+            "wind_direction": float(best.get("winddirection", 0) or 0),
         }
     except Exception as e:
         print(f"AQI 查詢失敗：{e}")
         return {}
-
-
-def _fetch_wind_for_county(county: str) -> dict:
-    """內部呼叫：取得縣市氣象站平均風速風向"""
-    API_KEY = os.getenv("CWA_API_KEY", "")
-    url = (
-        f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0001-001"
-        f"?Authorization={API_KEY}&format=JSON"
-    )
-    try:
-        resp = requests.get(url, verify=False, timeout=10)
-        data = resp.json()
-        stations = data.get("records", {}).get("Station", [])
-
-        norm = normalize_name(county)
-        county_stations = [
-            s for s in stations
-            if normalize_name(s.get("GeoInfo", {}).get("CountyName", "")) == norm
-        ]
-
-        if not county_stations:
-            return {"wind_speed": 0.0, "wind_direction": 0.0}
-
-        speeds, directions = [], []
-        for s in county_stations:
-            we = s.get("WeatherElement", {})
-            try:
-                speeds.append(float(we.get("WindSpeed", 0) or 0))
-                directions.append(float(we.get("WindDirection", 0) or 0))
-            except (ValueError, TypeError):
-                pass
-
-        return {
-            "wind_speed": round(sum(speeds) / len(speeds), 1) if speeds else 0.0,
-            "wind_direction": round(sum(directions) / len(directions), 1) if directions else 0.0,
-        }
-    except Exception as e:
-        print(f"氣象查詢失敗：{e}")
-        return {"wind_speed": 0.0, "wind_direction": 0.0}
 
 
 _TYPE_ZH = {
@@ -358,55 +320,6 @@ def get_air_quality(county: str = None):
         }
 
 
-@app.get("/api/weather")
-def get_weather(county: str = None):
-    API_KEY = os.getenv("CWA_API_KEY", "REPLACE_WITH_YOUR_CWA_API_KEY")
-    url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0001-001?Authorization={API_KEY}&format=JSON"
-
-    try:
-        response = requests.get(url, verify=False)
-        data = response.json()
-
-        raw_records = []
-        if "records" in data and "Station" in data["records"]:
-            raw_records = data["records"]["Station"]
-
-        records = []
-        for r in raw_records:
-            county_name = r.get("GeoInfo", {}).get("CountyName", "")
-            lat, lon = "", ""
-            coordinates = r.get("GeoInfo", {}).get("Coordinates", [])
-            for coord in list(coordinates):
-                if isinstance(coord, dict):
-                    lat = coord.get("StationLatitude", lat)
-                    lon = coord.get("StationLongitude", lon)
-
-            records.append({
-                "sitename": r.get("StationName", ""),
-                "county": county_name,
-                "latitude": lat,
-                "longitude": lon,
-                "WindSpeed": r.get("WeatherElement", {}).get("WindSpeed", "0"),
-                "WindDirection": r.get("WeatherElement", {}).get("WindDirection", "0")
-            })
-
-        if county:
-            norm_county = normalize_name(county)
-            records = [r for r in records if normalize_name(r.get("county", "")) == norm_county]
-
-        return {
-            "status": "success",
-            "county": county,
-            "message": "成功取得氣象署資料",
-            "records": records
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "county": county,
-            "message": f"連線錯誤: {str(e)}",
-            "records": []
-        }
 
 @app.get("/api/user_reports")
 def get_user_reports(region: str = None):
@@ -440,7 +353,7 @@ class ReportRequest(BaseModel):
 
 @app.post("/api/report")
 def submit_report(req: ReportRequest):
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone(timedelta(hours=8))).replace(tzinfo=None).isoformat()
 
     # 座標為 null 時，嘗試用 Google Maps API 將地址文字轉換為座標
     lat = req.latitude
@@ -475,9 +388,9 @@ def submit_report(req: ReportRequest):
     if is_confirmed and lat is not None and lng is not None:
         try:
             county = _extract_county_from_location(req.location) or ""
-            wind_data = _fetch_wind_for_county(county) if county else _fetch_wind_national()
-            wind_speed = wind_data.get("wind_speed", 0.0)
-            wind_direction = wind_data.get("wind_direction", 0.0)
+            aqi_wind = _fetch_aqi_for_county(county) if county else _fetch_wind_national_from_aqi()
+            wind_speed = aqi_wind.get("wind_speed", 0.0)
+            wind_direction = aqi_wind.get("wind_direction", 0.0)
 
             affected = get_affected_counties(lat, lng, wind_speed, wind_direction)
             event_type = (se.get("event_type") or "general_air_quality") if se else "general_air_quality"
@@ -591,10 +504,10 @@ def get_rag_advice(req: RagAdviceRequest):
             aqi = aqi_data.get("aqi", 0)
             pm25 = aqi_data.get("pm25", 0.0)
 
-        # 2. 取得氣象資料
-        wind_data = _fetch_wind_for_county(county)
-        wind_speed = wind_data.get("wind_speed", 0.0)
-        wind_direction = wind_data.get("wind_direction", 0.0)
+        # 2. 從 AQI 資料取得風速風向
+        aqi_wind = _fetch_aqi_for_county(county)
+        wind_speed = aqi_wind.get("wind_speed", 0.0)
+        wind_direction = aqi_wind.get("wind_direction", 0.0)
 
         # 3. 取得近期污染事件（新聞 + 民眾回報，合併）
         news_event_desc   = _fetch_recent_events_for_region(county)
@@ -678,7 +591,7 @@ def get_hotspots(min_reports: int = 2, radius_km: float = 1.5, top_n: int = 10):
     無風時自動擴大警戒半徑，並標記擴散條件差。
     """
     try:
-        wind = _fetch_wind_national()
+        wind = _fetch_wind_national_from_aqi()
         hotspots = analyze_hotspots(
             min_reports=min_reports,
             cluster_radius_km=radius_km,
