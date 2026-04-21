@@ -15,6 +15,7 @@ from db.reports_db import (
     init_db, insert_report,
     get_recent_reports, get_all_reports,
     get_recent_confirmed_by_county,
+    get_recent_reports_by_region,
 )
 from fcm.token_store import register_token, get_tokens_by_county, get_all_tokens
 from fcm.fcm_sender import send_multicast
@@ -408,10 +409,14 @@ def get_weather(county: str = None):
         }
 
 @app.get("/api/user_reports")
-def get_user_reports():
-    """回傳 24 小時內的民眾回報。"""
+def get_user_reports(region: str = None):
+    """回傳 24 小時內的民眾回報；若指定 region 則只回傳該地區。"""
     try:
-        return {"status": "success", "records": get_recent_reports(hours=24)}
+        if region:
+            records = get_recent_reports_by_region(region, hours=24)
+        else:
+            records = get_recent_reports(hours=24)
+        return {"status": "success", "records": records}
     except Exception as e:
         return {"status": "error", "message": str(e), "records": []}
 
