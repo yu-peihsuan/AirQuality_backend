@@ -720,6 +720,14 @@ def get_all_rules() -> list[dict]:
     return AQI_HEALTH_RULES
 
 
+def get_rule_by_id(rule_id: str) -> dict | None:
+    """根據 id 回傳完整規則"""
+    for rule in AQI_HEALTH_RULES:
+        if rule["id"] == rule_id:
+            return rule
+    return None
+
+
 def get_sensitive_group_advice(aqi_value: int, group: str) -> str | None:
     """根據 AQI 數值與特定族群，回傳該族群的專屬防護建議。
 

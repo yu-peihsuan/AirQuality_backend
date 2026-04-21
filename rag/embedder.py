@@ -4,7 +4,7 @@
 import os
 import chromadb
 from openai import OpenAI
-from rag.health_rules import get_all_rules
+from rag.health_rules import get_all_rules, get_rag_indexing_text
 
 # ChromaDB 持久化目錄（同個 rag/ 資料夾下）
 _DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
@@ -51,7 +51,7 @@ def build_knowledge_base(force_rebuild: bool = False) -> int:
 
     for rule in rules:
         ids.append(rule["id"])
-        documents.append(rule["text"])
+        documents.append(get_rag_indexing_text(rule["id"]) or rule["text"])
         metadatas.append({
             "level": rule["level"],
             "level_en": rule["level_en"],

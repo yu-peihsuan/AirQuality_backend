@@ -138,6 +138,38 @@ LOCATION_ALIASES = {
     "工業區": None,       # 太廣，不單獨判定
 }
 
+# 縣市常見縮寫 → (DISTRICTS key 短名, 強制後綴 or None)
+# 強制後綴 None 表示仍由行政區自動判斷（適用於永遠是市的縣市）
+_COUNTY_ABBREVS = {
+    "北市":  ("台北",  None),   # 台北市（唯一）
+    "北縣":  ("新北",  None),   # 新北市舊稱
+    "新北市":("新北",  None),
+    "基市":  ("基隆",  None),
+    "桃市":  ("桃園",  None),
+    "竹市":  ("新竹",  "市"),   # 新竹市
+    "竹縣":  ("新竹",  "縣"),   # 新竹縣
+    "苗縣":  ("苗栗",  None),
+    "中市":  ("台中",  None),
+    "彰縣":  ("彰化",  None),
+    "投縣":  ("南投",  None),
+    "雲縣":  ("雲林",  None),
+    "嘉市":  ("嘉義",  "市"),   # 嘉義市
+    "嘉縣":  ("嘉義",  "縣"),   # 嘉義縣
+    "南市":  ("台南",  None),
+    "高市":  ("高雄",  None),
+    "屏縣":  ("屏東",  None),
+    "宜縣":  ("宜蘭",  None),
+    "花縣":  ("花蓮",  None),
+    "東縣":  ("台東",  None),
+}
+
+# exclude_districts 使用去後綴後的名稱（與 DISTRICTS 一致）
+_AMBIGUOUS_DISTRICTS = {
+    "東", "西", "南", "北", "中",
+    "仁愛", "信義", "和平", "成功", "大同",
+    "中山", "中正", "光復", "復興", "建國",
+}
+
 def extract_region(text):
     """從標題或摘要中擷取地區，精確到鄉鎮市區"""
     # 0. 優先比對地標別名
@@ -147,38 +179,61 @@ def extract_region(text):
 
     found_county = None
     found_district = None
+    forced_suffix = None   # 從縮寫明確知道是市還是縣時使用
 
+    def _find_district(districts, text, allow_ambiguous: bool = False):
+        """在行政區清單中找命中的名稱。
+        長名稱優先（避免「南」比「安南」先命中）。
+        allow_ambiguous=False 時跳過易混淆的單字行政區。
+        """
+        for d in sorted(districts, key=len, reverse=True):
+            if not allow_ambiguous and d in _AMBIGUOUS_DISTRICTS:
+                continue
+            if d in text:
+                return d
+        return None
+
+    # 1. 比對完整縣市短名（如「嘉義」「新竹」）
+    # 縣市已知 → 允許比對單字行政區（東/西/南/北），長名稱優先排序確保精確
     for county, districts in DISTRICTS.items():
         if county in text:
             found_county = county
-            for district in districts:
-                if district in text:
-                    found_district = district
-                    break
+            found_district = _find_district(districts, text, allow_ambiguous=True)
             if found_district:
                 break
-                
+
+    # 2. 若完整縣市名找不到，才嘗試縣市縮寫（如「嘉市」「竹縣」）
     if not found_county:
-        # 嘗試只找鄉鎮市區 (排除容易混淆的單字)
-        exclude_districts = ["東區", "西區", "南區", "北區", "中區", "仁愛", "信義", "和平", "成功", "大同", "中山", "中正", "光復", "復興", "建國"]
+        for abbrev, (short_name, abbrev_suffix) in _COUNTY_ABBREVS.items():
+            if abbrev in text:
+                found_county = short_name
+                forced_suffix = abbrev_suffix
+                found_district = _find_district(
+                    DISTRICTS.get(short_name, []), text, allow_ambiguous=True
+                )
+                break
+
+    # 3. 若仍找不到縣市，用行政區反推（排除易混淆單字）
+    if not found_county:
         for county, districts in DISTRICTS.items():
-            for district in districts:
-                if district in exclude_districts:
-                    continue
-                if district in text:
-                    found_county = county
-                    found_district = district
-                    break
-            if found_county:
+            d = _find_district(districts, text, allow_ambiguous=False)
+            if d:
+                found_county = county
+                found_district = d
                 break
 
     if found_county:
-        # 補齊縣市後綴
-        c_suffix = "市" if found_county in ["基隆", "台北", "新北", "桃園", "台中", "嘉義", "台南", "高雄"] else "縣"
-        if found_county == "新竹":
-            c_suffix = "市" if found_district in ["東區", "北區", "香山", None] else "縣"
+        # 補齊縣市後綴：優先用縮寫明確指定的後綴，其次自動判斷
+        if forced_suffix:
+            c_suffix = forced_suffix
+        elif found_county in ["基隆", "台北", "新北", "桃園", "台中", "台南", "高雄"]:
+            c_suffix = "市"
+        elif found_county == "新竹":
+            c_suffix = "市" if found_district in ["東", "北", "香山", None] else "縣"
         elif found_county == "嘉義":
-            c_suffix = "市" if found_district in ["東區", "西區", None] else "縣"
+            c_suffix = "市" if found_district in ["東", "西", None] else "縣"
+        else:
+            c_suffix = "縣"
             
         c_name = found_county + c_suffix
         
