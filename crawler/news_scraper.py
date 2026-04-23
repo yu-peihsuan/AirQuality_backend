@@ -78,10 +78,10 @@ def is_realtime_event(title: str, summary: str = "") -> bool:
         return False
     return True
 
-NEWS_RETENTION_HOURS = 48  # 新聞保留時間（小時）
+NEWS_RETENTION_HOURS = 24  # 新聞保留時間（小時）
 
 def is_within_retention(published_str):
-    """檢查新聞發布時間是否在保留期限內（預設 48 小時）"""
+    """檢查新聞發布時間是否在保留期限內（預設 24 小時）"""
     if not published_str:
         return False
     try:
