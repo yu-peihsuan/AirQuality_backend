@@ -1,5 +1,6 @@
 import os
 import requests
+from datetime import datetime
 
 FORECAST_URL = "https://data.moenv.gov.tw/api/v2/AQF_P_01"
 
@@ -17,7 +18,6 @@ _COUNTY_TO_AREA = {
 
 
 def _county_to_area(county: str) -> str | None:
-    """將縣市名稱轉為空品區短名（如「台南市」→「雲嘉南」）。"""
     norm = county.replace("臺", "台").rstrip("市縣")
     return _COUNTY_TO_AREA.get(norm)
 
@@ -41,7 +41,6 @@ def _aqi_to_status(aqi: int) -> str:
 
 
 def _parse_aqi(raw) -> int:
-    """處理 AQI 欄位可能為單值 '120' 或範圍 '101-150'，取上限值。"""
     if raw is None:
         return 0
     s = str(raw).strip()
@@ -57,22 +56,34 @@ def _parse_aqi(raw) -> int:
 
 
 def fetch_latest_forecast(county: str = None) -> list[dict]:
-    """
-    從 AQF_P_01 取得最新空品預報（每 30 分鐘更新）。
-    county 為縣市名稱，內部自動轉換為對應的空品區過濾。
-    """
+    """從 AQF_P_01 取得最新空品預報，依縣市過濾，每個空品區只保留最新一筆。"""
     api_key = os.getenv("MOENV_API_KEY", "")
     if not api_key:
         print("⚠️  MOENV_API_KEY 未設定，跳過空品預報")
         return []
+    today = datetime.now().strftime("%Y-%m-%d")
     try:
         resp = requests.get(
             FORECAST_URL,
-            params={"api_key": api_key, "format": "JSON", "limit": 100, "offset": 0},
+            params={"api_key": api_key, "format": "JSON", "limit": 1000,
+                    "sort": "publishtime desc", "offset": 0},
             timeout=10,
         )
         data = resp.json()
         records = data if isinstance(data, list) else data.get("records", [])
+
+        # 只保留今天發布的資料（publishtime 開頭是今天日期）
+        records = [r for r in records if str(r.get("publishtime", "")).startswith(today)]
+
+        # 每個空品區只取第一筆（已按 publishtime desc 排序，即最新）
+        seen_areas: set[str] = set()
+        deduped = []
+        for r in records:
+            area = r.get("area", "")
+            if area not in seen_areas:
+                seen_areas.add(area)
+                deduped.append(r)
+        records = deduped
 
         if county:
             area_short = _county_to_area(county)
@@ -85,34 +96,70 @@ def fetch_latest_forecast(county: str = None) -> list[dict]:
         return []
 
 
-def fetch_worsening_forecasts(county: str = None, current_aqi: int = 0) -> list[dict]:
+def _parse_trend(content: str) -> str:
+    """從預報文字中判斷空氣品質趨勢，回傳簡短描述。"""
+    if not content:
+        return ""
+    worsening = ["轉差", "惡化", "升高", "增加", "不良", "偏差", "加重", "累積", "偏高", "污染", "汙染", "惡劣"]
+    improving = ["改善", "好轉", "降低", "減少", "轉好", "趨緩", "消散", "減輕", "偏低", "趨好"]
+    if any(k in content for k in worsening):
+        return "空氣品質預計將變差"
+    if any(k in content for k in improving):
+        return "空氣品質預計將改善"
+    return "空氣品質預計維持穩定"
+
+
+def fetch_today_forecasts(county: str = None) -> list[dict]:
     """
-    取得預報 AQI ≥ 101 的空品區清單（格式相容 NewsRecord）。
-    若傳入 current_aqi，只回傳比今天更差的紀錄。
+    取得今日空品預報（格式相容 NewsRecord）。
+    好壞都回傳，通知中心用。
     """
     records = fetch_latest_forecast(county)
     result = []
     for r in records:
-        forecast_aqi   = _parse_aqi(r.get("aqi"))
+        forecast_aqi = _parse_aqi(r.get("aqi"))
+        status       = _aqi_to_status(forecast_aqi)
+        area         = r.get("area", "")
+        location     = county or area
+        publishtime  = r.get("publishtime", "")
+        trend        = _parse_trend(r.get("content", ""))
+
+        result.append({
+            "source":       "空品預報",
+            "region":       location,
+            "title":        f"{location} 空品預報：{status}",
+            "summary":      trend,
+            "url":          "",
+            "published_at": publishtime,
+            "timestamp":    "",
+        })
+    return result
+
+
+def fetch_worsening_forecasts(county: str = None, current_aqi: int = 0) -> list[dict]:
+    """取得今日預報 AQI ≥ 101 的清單，推播用。"""
+    records = fetch_latest_forecast(county)
+    result = []
+    for r in records:
+        forecast_aqi = _parse_aqi(r.get("aqi"))
         if forecast_aqi < 101:
             continue
         if current_aqi > 0 and _aqi_rank(forecast_aqi) <= _aqi_rank(current_aqi):
             continue
 
-        status         = _aqi_to_status(forecast_aqi)
-        area           = r.get("area", "")
-        majorpollutant = r.get("majorpollutant", "")
-        content        = r.get("content", "")
-        forecastdate   = r.get("forecastdate", "")
-        publishtime    = r.get("publishtime", "")
+        status      = _aqi_to_status(forecast_aqi)
+        area        = r.get("area", "")
+        publishtime = r.get("publishtime", "")
 
+        location = county or area
+        trend    = _parse_trend(r.get("content", ""))
         result.append({
             "source":       "空品預報",
-            "region":       county or area,
-            "title":        f"預報 AQI {forecast_aqi}（{status}）",
-            "summary":      content or (f"主要污染物：{majorpollutant}" if majorpollutant else ""),
+            "region":       location,
+            "title":        f"{location} 空品預報：{status}",
+            "summary":      trend,
             "url":          "",
-            "published_at": publishtime or forecastdate,
+            "published_at": publishtime,
             "timestamp":    "",
         })
     return result

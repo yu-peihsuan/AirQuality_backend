@@ -124,7 +124,7 @@ async def lifespan(app: FastAPI):
     scheduler = BackgroundScheduler()
     scheduler.add_job(_scraper_job, "interval", hours=6, id="news_scraper",
                       next_run_time=_dt.now())
-    scheduler.add_job(_forecast_push_job, "interval", hours=2, id="forecast_push",
+    scheduler.add_job(_forecast_push_job, "interval", minutes=30, id="forecast_push",
                       next_run_time=_dt.now())
     scheduler.start()
     print("⏰ 新聞爬蟲排程已啟動（每 6 小時執行一次，啟動時立即執行）")
@@ -727,26 +727,11 @@ def get_fire_alerts(region: str = None):
 
 
 @app.get("/api/forecast")
-def get_forecast(county: str = None, show_all: bool = False):
-    """回傳明日空品預報。show_all=true 時不過濾 AQI，用於確認資料是否正常。"""
+def get_forecast(county: str = None):
+    """回傳今日空品預報（好壞都回傳），通知中心用。"""
     try:
-        from crawler.forecast_fetcher import fetch_worsening_forecasts, fetch_latest_forecast, _parse_aqi, _aqi_to_status
-        if show_all:
-            raw = fetch_latest_forecast(county)
-            records = [
-                {
-                    "source":       "空品預報",
-                    "region":       r.get("area", ""),
-                    "title":        f"AQI {_parse_aqi(r.get('aqi'))}（{_aqi_to_status(_parse_aqi(r.get('aqi')))}）",
-                    "summary":      r.get("content", "") or r.get("majorpollutant", ""),
-                    "published_at": r.get("publishtime", "") or r.get("forecastdate", ""),
-                    "timestamp":    "",
-                    "url":          "",
-                }
-                for r in raw
-            ]
-        else:
-            records = fetch_worsening_forecasts(county)
+        from crawler.forecast_fetcher import fetch_today_forecasts
+        records = fetch_today_forecasts(county)
         return {"status": "success", "region": county, "message": "", "records": records}
     except Exception as e:
         return {"status": "error", "region": county, "message": str(e), "records": []}
