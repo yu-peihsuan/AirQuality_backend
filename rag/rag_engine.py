@@ -22,6 +22,7 @@ _ADVICE_PROMPT = """你是一個空氣品質健康顧問系統，請根據以下
 - 風速：{wind_speed} m/s，風向：{wind_direction}°
 - 附近污染事件：{event_description}
 - 下風處警告：{downwind_warning}
+- 明日空品預報：{forecast_info}
 
 ## 用戶健康檔案
 - 年齡層：{age_group}
@@ -40,7 +41,17 @@ _ADVICE_PROMPT = """你是一個空氣品質健康顧問系統，請根據以下
 4. 若 AQI 超標或有污染事件，給出**具體、可執行**的防護建議。
 5. 特別考量用戶的健康狀況，給出個人化提醒。
 6. 長度控制在 **1 句話以內**，20~35 字，精簡有力，不要廢話。
-7. 不要用「根據健康指引」、「根據 WHO 建議」等制式開場白。"""
+7. 不要用「根據健康指引」、「根據 WHO 建議」等制式開場白。
+8. 若空品預報與現在有明顯差異，可在建議末尾加一句：預報變差時提醒防護，預報改善時鼓勵把握好天氣。"""
+
+
+def _aqi_to_status(aqi: int) -> str:
+    if aqi <= 50:  return "良好"
+    if aqi <= 100: return "普通"
+    if aqi <= 150: return "對敏感族群不健康"
+    if aqi <= 200: return "對所有族群不健康"
+    if aqi <= 300: return "非常不健康"
+    return "危害"
 
 
 def _describe_user_profile(profile: dict) -> dict:
@@ -138,6 +149,8 @@ def generate_advice(
     user_profile: dict,
     event_description: str = "無",
     is_downwind: bool = False,
+    forecast_aqi: int = 0,
+    forecast_status: str = "",
 ) -> dict:
     """
     核心 RAG 生成函式。
@@ -180,6 +193,10 @@ def generate_advice(
     # 4. 組合個人化 Prompt
     profile_desc = _describe_user_profile(user_profile)
     downwind_warning = "是，您目前位於污染熱點的下風處，污染物可能隨風飄向您所在位置，請特別注意防護。" if is_downwind else "否"
+    if forecast_aqi > 0:
+        forecast_info = f"預報 AQI {forecast_aqi}（{forecast_status or _aqi_to_status(forecast_aqi)}）"
+    else:
+        forecast_info = "無預報資料"
     prompt = _ADVICE_PROMPT.format(
         county=county,
         aqi=aqi,
@@ -189,6 +206,7 @@ def generate_advice(
         wind_direction=round(wind_direction) if wind_direction else "未知",
         event_description=event_description if event_description else "無",
         downwind_warning=downwind_warning,
+        forecast_info=forecast_info,
         retrieved_knowledge=retrieved_texts or "（無相關健康指引）",
         **profile_desc,
     )

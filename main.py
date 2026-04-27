@@ -53,6 +53,56 @@ def _scraper_job():
         print(f"⚠️  排程爬蟲失敗：{e}")
 
 
+# ── 空品預報推播排程任務 ──────────────────────────────────────────────────────
+# 記錄已推播過的 (county, forecastdate)，當天內不重複推播同一縣市
+_forecast_pushed: set[tuple[str, str]] = set()
+_forecast_pushed_date: str = ""
+
+
+def _forecast_push_job():
+    """每 2 小時執行：若明天空品惡化（AQI ≥ 101）且當天尚未推播，則立即推播。"""
+    global _forecast_pushed, _forecast_pushed_date
+    today = datetime.now().strftime("%Y-%m-%d")
+    # 跨日重置已推播記錄
+    if _forecast_pushed_date != today:
+        _forecast_pushed = set()
+        _forecast_pushed_date = today
+
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 空品預報推播排程啟動...")
+    try:
+        from crawler.forecast_fetcher import fetch_worsening_forecasts
+        worsening = fetch_worsening_forecasts()
+        if not worsening:
+            print("  ✅ 明日無縣市空品惡化預報，無需推播。")
+            return
+        sent = 0
+        for rec in worsening:
+            county      = rec["region"]
+            forecastdate = rec["published_at"]
+            key = (county, forecastdate)
+            if key in _forecast_pushed:
+                continue  # 當天已推過，跳過
+            tokens = get_tokens_by_county(county)
+            if not tokens:
+                _forecast_pushed.add(key)
+                continue
+            title = f"⚠️ {county}明日空品預警"
+            body  = rec["title"] + ("　" + rec["summary"] if rec["summary"] else "")
+            try:
+                send_multicast(tokens, title=title, body=body, data={"type": "forecast", "county": county})
+                _forecast_pushed.add(key)
+                print(f"  📲 推播：{county} | {len(tokens)} 台裝置")
+                sent += 1
+            except Exception as e:
+                print(f"  ⚠️ 推播失敗：{county} | {e}")
+        if sent:
+            print(f"  ✅ 預報推播完成，共 {sent} 個縣市")
+        else:
+            print("  ✅ 無新預警需推播（已全部推送過）")
+    except Exception as e:
+        print(f"⚠️  預報推播排程失敗：{e}")
+
+
 # ── Lifespan：啟動時初始化 DB 與知識庫 ───────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -73,6 +123,8 @@ async def lifespan(app: FastAPI):
     from datetime import datetime as _dt
     scheduler = BackgroundScheduler()
     scheduler.add_job(_scraper_job, "interval", hours=6, id="news_scraper",
+                      next_run_time=_dt.now())
+    scheduler.add_job(_forecast_push_job, "interval", hours=2, id="forecast_push",
                       next_run_time=_dt.now())
     scheduler.start()
     print("⏰ 新聞爬蟲排程已啟動（每 6 小時執行一次，啟動時立即執行）")
@@ -560,7 +612,19 @@ def get_rag_advice(req: RagAdviceRequest):
                     )
                     event_desc = f"{event_desc}；{dw_desc}" if event_desc != "無" else dw_desc
 
-        # 5. 呼叫 RAG 引擎生成建議
+        # 5. 取得明日空品預報
+        forecast_aqi, forecast_status = 0, ""
+        try:
+            from crawler.forecast_fetcher import fetch_latest_forecast, _parse_aqi
+            fc_records = fetch_latest_forecast(county)
+            if fc_records:
+                fc = fc_records[0]
+                forecast_aqi    = _parse_aqi(fc.get("aqi"))
+                forecast_status = fc.get("status", "")
+        except Exception:
+            pass
+
+        # 6. 呼叫 RAG 引擎生成建議
         result = generate_advice(
             county=county,
             aqi=aqi,
@@ -570,6 +634,8 @@ def get_rag_advice(req: RagAdviceRequest):
             user_profile=req.user_profile.model_dump(),
             event_description=event_desc,
             is_downwind=is_downwind,
+            forecast_aqi=forecast_aqi,
+            forecast_status=forecast_status,
         )
 
         return {
@@ -658,6 +724,33 @@ def get_fire_alerts(region: str = None):
         return {"status": "success", "region": region, "message": "", "records": records}
     except Exception as e:
         return {"status": "error", "region": region, "message": str(e), "records": []}
+
+
+@app.get("/api/forecast")
+def get_forecast(county: str = None, show_all: bool = False):
+    """回傳明日空品預報。show_all=true 時不過濾 AQI，用於確認資料是否正常。"""
+    try:
+        from crawler.forecast_fetcher import fetch_worsening_forecasts, fetch_latest_forecast, _parse_aqi, _aqi_to_status
+        if show_all:
+            raw = fetch_latest_forecast(county)
+            records = [
+                {
+                    "source":       "空品預報",
+                    "region":       r.get("area", ""),
+                    "title":        f"AQI {_parse_aqi(r.get('aqi'))}（{_aqi_to_status(_parse_aqi(r.get('aqi')))}）",
+                    "summary":      r.get("content", "") or r.get("majorpollutant", ""),
+                    "published_at": r.get("publishtime", "") or r.get("forecastdate", ""),
+                    "timestamp":    "",
+                    "url":          "",
+                }
+                for r in raw
+            ]
+        else:
+            records = fetch_worsening_forecasts(county)
+        return {"status": "success", "region": county, "message": "", "records": records}
+    except Exception as e:
+        return {"status": "error", "region": county, "message": str(e), "records": []}
+
 
 
 # ── FCM 推播 Endpoints ────────────────────────────────────────────────────────
