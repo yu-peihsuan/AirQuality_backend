@@ -221,48 +221,63 @@ def _fetch_user_report_events(county: str) -> str:
 
 
 def _fetch_recent_events_for_region(region: str) -> str:
-    """從 scraped_news.json 撈取近期同地區結構化污染事件描述"""
+    """從 scraped_news.json 與民生示警火災警示撈取近期同地區事件描述"""
+    norm = normalize_name(region)
+    events = []
+
+    # ── 1. 民生示警即時重大火災警示 ──────────────────────────────────────────
+    try:
+        from crawler.fire_alert_scraper import fetch_fire_alerts
+        fire_alerts = fetch_fire_alerts(hours=24)
+        for alert in fire_alerts:
+            alert_county = normalize_name(alert.get("county", ""))
+            area_desc    = normalize_name(alert.get("area_desc", ""))
+            if norm in alert_county or norm in area_desc:
+                desc = alert.get("description", "火災")
+                location = alert.get("area_desc", "")
+                label = f"重大火災警示：{desc}"
+                if location:
+                    label += f"（{location}）"
+                events.append(label)
+    except Exception as e:
+        print(f"民生示警火災查詢失敗：{e}")
+
+    # ── 2. 新聞爬蟲事件 ───────────────────────────────────────────────────────
     try:
         file_path = os.path.join(
             os.path.dirname(__file__), "crawler", "scraped_news.json"
         )
-        if not os.path.exists(file_path):
-            return "無"
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                all_news = json.load(f)
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            all_news = json.load(f)
-
-        norm = normalize_name(region)
-        region_news = [
-            n for n in all_news
-            if norm in normalize_name(n.get("region", ""))
-        ]
-
-        # 只取有確認污染事件的新聞（帶有 structured_event 欄位）
-        confirmed_events = []
-        for n in region_news:
-            se = n.get("structured_event")
-            if se and se.get("is_confirmed_pollution_event"):
-                event_type = se.get("event_type", "unknown")
-                severity = se.get("severity", "unknown")
-                title = n.get("title", "")
-                confirmed_events.append(f"{title}（{event_type}，{severity}）")
-
-        if not confirmed_events:
-            # 若無結構化事件，改用標題關鍵字
-            fire_news = [
-                n["title"] for n in region_news
-                if any(k in n.get("title", "") for k in ["火災", "濃煙", "火警", "大火", "異味"])
+            region_news = [
+                n for n in all_news
+                if norm in normalize_name(n.get("region", ""))
             ]
-            if fire_news:
-                return f"附近有火災/濃煙通報：{fire_news[0]}"
-            return "無"
 
-        return "、".join(confirmed_events[:2])  # 最多回傳 2 筆
+            confirmed_events = []
+            for n in region_news:
+                se = n.get("structured_event")
+                if se and se.get("is_confirmed_pollution_event"):
+                    event_type = se.get("event_type", "unknown")
+                    severity   = se.get("severity", "unknown")
+                    title      = n.get("title", "")
+                    confirmed_events.append(f"{title}（{event_type}，{severity}）")
 
+            if confirmed_events:
+                events.extend(confirmed_events[:2])
+            else:
+                fire_news = [
+                    n["title"] for n in region_news
+                    if any(k in n.get("title", "") for k in ["火災", "濃煙", "火警", "大火", "異味"])
+                ]
+                if fire_news:
+                    events.append(f"附近有火災/濃煙通報：{fire_news[0]}")
     except Exception as e:
-        print(f"事件查詢失敗：{e}")
-        return "無"
+        print(f"新聞事件查詢失敗：{e}")
+
+    return "、".join(events[:3]) if events else "無"
 
 
 # ── Pydantic 模型 ────────────────────────────────────────────────────────────
@@ -606,6 +621,45 @@ def get_hotspots(min_reports: int = 2, radius_km: float = 1.5, top_n: int = 10):
         }
     except Exception as e:
         return {"status": "error", "message": str(e), "hotspots": []}
+
+
+# ── 民生示警火災警示 Endpoint ──────────────────────────────────────────────────
+
+@app.get("/api/fire_alerts")
+def get_fire_alerts(region: str = None):
+    """回傳民生示警平台近 24 小時的有效重大火災警示，格式與 /api/news 相容。"""
+    try:
+        from crawler.fire_alert_scraper import fetch_fire_alerts
+        alerts = fetch_fire_alerts(hours=24)
+
+        if region:
+            norm = normalize_name(region)
+            alerts = [
+                a for a in alerts
+                if norm in normalize_name(a.get("county", ""))
+                or norm in normalize_name(a.get("area_desc", ""))
+            ]
+
+        records = [
+            {
+                "source":       "消防署火災警示",
+                "region":       a.get("county", ""),
+                "title":        a.get("description", "重大火災"),
+                "summary":      a.get("area_desc", ""),
+                "url":          a.get("cap_url", ""),
+                "published_at": a.get("updated", ""),
+                "timestamp":    a.get("updated", ""),
+                "latitude":     a.get("latitude"),
+                "longitude":    a.get("longitude"),
+            }
+            for a in alerts
+        ]
+
+        return {"status": "success", "region": region, "message": "", "records": records}
+    except Exception as e:
+        return {"status": "error", "region": region, "message": str(e), "records": []}
+
+
 # ── FCM 推播 Endpoints ────────────────────────────────────────────────────────
 
 class TokenRegisterRequest(BaseModel):
