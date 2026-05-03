@@ -728,11 +728,22 @@ def get_fire_alerts(region: str = None):
 
 @app.get("/api/forecast")
 def get_forecast(county: str = None):
-    """回傳今日空品預報（好壞都回傳），通知中心用。"""
+    """回傳今日空品預報摘要，通知中心用。"""
     try:
         from crawler.forecast_fetcher import fetch_today_forecasts
         records = fetch_today_forecasts(county)
         return {"status": "success", "region": county, "message": "", "records": records}
+    except Exception as e:
+        return {"status": "error", "region": county, "message": str(e), "records": []}
+
+
+@app.get("/api/forecast/raw")
+def get_forecast_raw(county: str = None):
+    """回傳 AQF_P_01 今日完整原始資料，供查閱所有欄位內容。"""
+    try:
+        from crawler.forecast_fetcher import fetch_latest_forecast
+        records = fetch_latest_forecast(county)
+        return {"status": "success", "region": county, "count": len(records), "records": records}
     except Exception as e:
         return {"status": "error", "region": county, "message": str(e), "records": []}
 
