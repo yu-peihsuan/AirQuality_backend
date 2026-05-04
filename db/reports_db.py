@@ -106,6 +106,17 @@ def get_recent_reports(hours: int = 24) -> list[dict]:
     return [_row_to_dict(r) for r in rows]
 
 
+def get_recent_reports_by_region(region: str, hours: int = 24) -> list[dict]:
+    """回傳最近 N 小時、指定地區的所有回報。"""
+    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM user_reports WHERE timestamp >= ? AND region LIKE ? ORDER BY timestamp DESC",
+            (cutoff, f"%{region}%"),
+        ).fetchall()
+    return [_row_to_dict(r) for r in rows]
+
+
 def get_all_reports() -> list[dict]:
     """回傳所有歷史回報。"""
     with _get_conn() as conn:

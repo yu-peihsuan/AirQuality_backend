@@ -78,10 +78,10 @@ def is_realtime_event(title: str, summary: str = "") -> bool:
         return False
     return True
 
-NEWS_RETENTION_HOURS = 48  # 新聞保留時間（小時）
+NEWS_RETENTION_HOURS = 24  # 新聞保留時間（小時）
 
 def is_within_retention(published_str):
-    """檢查新聞發布時間是否在保留期限內（預設 48 小時）"""
+    """檢查新聞發布時間是否在保留期限內（預設 24 小時）"""
     if not published_str:
         return False
     try:
@@ -476,8 +476,40 @@ def cleanup_old_news():
     if deleted:
         print(f"🗑️  已清除 {deleted} 筆過期新聞（超過 {NEWS_RETENTION_HOURS} 小時）")
 
+import re as _re
+
+def _extract_street_from_title(title: str) -> str | None:
+    """從標題中擷取路名，例如「青年路」「民族路二段」。"""
+    pattern = r'[一-鿿]{1,6}(?:路|街|大道|大路)(?:[一二三四五六七八九十]+段)?'
+    matches = _re.findall(pattern, title)
+    return matches[0] if matches else None
+
+
+def _reverse_geocode_region(lat: float, lng: float, api_key: str) -> str | None:
+    """用座標反查行政區，回傳「台南市中西區」格式字串；失敗回傳 None。"""
+    try:
+        url = (
+            f"https://maps.googleapis.com/maps/api/geocode/json"
+            f"?latlng={lat},{lng}&key={api_key}&language=zh-TW&region=TW"
+        )
+        data = requests.get(url, timeout=10).json()
+        if data.get("status") != "OK" or not data.get("results"):
+            return None
+        components = data["results"][0].get("address_components", [])
+        city = district = ""
+        for comp in components:
+            ctypes = comp.get("types", [])
+            if "administrative_area_level_1" in ctypes:
+                city = comp["long_name"].replace("臺", "台")
+            if "administrative_area_level_2" in ctypes or "sublocality_level_1" in ctypes:
+                district = comp["long_name"]
+        return f"{city}{district}" if city and district else None
+    except Exception:
+        return None
+
+
 def _geocode_news_events(news_list: list) -> list:
-    """對確認的污染事件進行地理編碼，加入 latitude / longitude。"""
+    """對確認的污染事件進行地理編碼，加入 latitude / longitude，並反查修正 region。"""
     api_key = os.getenv("MAPS_API_KEY", "")
     if not api_key:
         print("⚠️  MAPS_API_KEY 未設定，跳過新聞地理編碼")
@@ -488,8 +520,19 @@ def _geocode_news_events(news_list: list) -> list:
         if not se or not se.get("is_confirmed_pollution_event"):
             continue
 
-        # 優先用 LLM 萃取的精確地點，其次用 region
-        location_text = se.get("location_description") or news.get("region", "")
+        title  = news.get("title", "")
+        region = news.get("region", "")
+
+        # 1. 優先用「縣市 + 路名」作為查詢（最精確）
+        street = _extract_street_from_title(title)
+        if street:
+            county_m = _re.match(r'^([一-鿿]{2,3}(?:市|縣))', region)
+            county   = county_m.group(1) if county_m else ""
+            location_text = f"{county}{street}" if county else street
+        else:
+            # fallback：LLM 萃取的地點 → region
+            location_text = se.get("location_description") or region
+
         if not location_text or location_text == "台灣 (未指明特定縣市)":
             continue
 
@@ -503,9 +546,15 @@ def _geocode_news_events(news_list: list) -> list:
             data = resp.json()
             if data.get("status") == "OK":
                 loc = data["results"][0]["geometry"]["location"]
-                news["latitude"] = loc["lat"]
+                news["latitude"]  = loc["lat"]
                 news["longitude"] = loc["lng"]
-                print(f"  📍 Geocoded: {location_text} → ({loc['lat']:.4f}, {loc['lng']:.4f})")
+
+                # 2. 反查行政區，修正 region（確保與座標一致）
+                corrected = _reverse_geocode_region(loc["lat"], loc["lng"], api_key)
+                if corrected:
+                    news["region"] = corrected
+
+                print(f"  📍 Geocoded: {location_text} → ({loc['lat']:.4f}, {loc['lng']:.4f}) [{news['region']}]")
             else:
                 print(f"  ⚠️  Geocoding 無結果（{data.get('status')}）：{location_text}")
         except Exception as e:

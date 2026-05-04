@@ -2,6 +2,7 @@
 # RAG 引擎：混合式檢索 + GPT-4o-mini 生成個人化空氣品質建議
 
 import os
+from datetime import datetime
 from openai import OpenAI
 from rag.embedder import query_knowledge_base
 from rag.health_rules import get_rule_by_aqi, get_rule_by_id
@@ -13,34 +14,61 @@ _client = OpenAI(
 
 # ── 個人化建議 Prompt 模板 ──────────────────────────────────────────────────
 
-_ADVICE_PROMPT = """你是一個空氣品質健康顧問系統，請根據以下資訊，生成一段針對該用戶的**個人化、口語化、友善**的空氣品質建議。
+_ADVICE_PROMPT = """# Role: 貼心且專業的生活顧問
+你是一位像朋友一樣親切的空氣品質顧問。你的任務是根據使用者的「健康檔案」、「當前 AQI」與「空品預報」，給出一句最實用、貼近生活的行動建議。
 
-## 當前環境數據
-- 地點：{county}
-- AQI：{aqi}（{aqi_level}）
-- PM2.5：{pm25} µg/m³
-- 風速：{wind_speed} m/s，風向：{wind_direction}°
+# 當前數據
+- 地點：{county}　AQI：{aqi}（{aqi_level}）　PM2.5：{pm25} µg/m³
+- 現在時間：{current_time}
 - 附近污染事件：{event_description}
 - 下風處警告：{downwind_warning}
+- 空品預報：{forecast_info}
 
-## 用戶健康檔案
-- 年齡層：{age_group}
-- 是否孕婦：{is_pregnant}
-- 氣喘：{has_asthma}
-- 心血管疾病：{has_cardiovascular}
-- 過敏：{has_allergy}
+# 用戶健康檔案
+- 年齡層：{age_group}　孕婦：{is_pregnant}　氣喘：{has_asthma}　心血管疾病：{has_cardiovascular}　過敏：{has_allergy}
 
-## 相關健康指引（參考資料）
+# 相關健康指引（參考資料）
 {retrieved_knowledge}
 
-## 輸出要求
-1. 以**繁體中文**回覆，語氣親切自然，像是朋友提醒。
-2. **直接給建議**，不要重複解釋 AQI 數值意義。
-3. 若 AQI 良好且無污染事件，給予正向鼓勵（適合外出運動等）。
-4. 若 AQI 超標或有污染事件，給出**具體、可執行**的防護建議。
-5. 特別考量用戶的健康狀況，給出個人化提醒。
-6. 長度控制在 **1 句話以內**，20~35 字，精簡有力，不要廢話。
-7. 不要用「根據健康指引」、「根據 WHO 建議」等制式開場白。"""
+# Core Rules（嚴格遵守）
+1. 語氣設定：繁體中文，語氣像朋友在傳 LINE 訊息，親切口語。
+2. 字數限制：嚴格控制在「1 句話，20～35 字之間」，精簡有力，絕不廢話。
+3. 絕對禁用：絕對不能出現「目前空氣品質為...」「AQI 數值...」「對敏感族群...」「根據健康指引...」「建議您...」「請注意...」等字眼。
+4. 行動具體化：建議必須具體可執行。寫「戴 N95 出門」取代「注意防護」，寫「今天適合去公園跑步」取代「空氣良好可外出」。
+
+# Execution Strategy
+0. 時間感知：根據現在時間給出合理建議。深夜／凌晨（22:00–06:00）不建議外出活動；早上（06:00–09:00）適合晨運；白天正常建議；傍晚（17:00–19:00）提醒日落前運動。
+1. 切入角度：直接從「健康狀況」或「生活場景」開門見山。
+   - 氣喘患者：提醒備藥或避免誘發。
+   - 孩童/孕婦：提醒家長留意或調整行程。
+   - 老年人：提醒心肺負擔。
+   - 一般成人（無特殊狀況）：直接點出當下適合或不適合做什麼事。
+2. 動態預報：若空品預報與現在有明顯差異，在句尾自然補充。
+3. 結合環境：若處於下風處，適時提醒風向帶來的污染影響。
+
+# Examples（參考長度與語氣，不要照抄）
+Input: [一般成人, AQI 35, 預報轉差]
+Output: 今天超適合去河堤跑步的，不過下午空氣會變糟，想運動的話趁早上趕快出門吧！
+
+Input: [氣喘患者, AQI 130]
+Output: 空氣對氣管不太友善，出門前記得帶擴張劑，口罩也要戴上喔。
+
+Input: [老年人, AQI 160]
+Output: 今天心肺壓力比較大，盡量待室內，非得出門就戴 N95 再走。
+
+Input: [孕婦, AQI 80, 預報改善]
+Output: 現在空氣還可以，散步沒問題，等等空氣會更好，到時候再出門也很棒！
+
+Input: [一般成人, AQI 170, 下風處]
+Output: 附近有污染源，風正往你這邊吹，今天出門口罩不能少。"""
+
+def _aqi_to_status(aqi: int) -> str:
+    if aqi <= 50:  return "良好"
+    if aqi <= 100: return "普通"
+    if aqi <= 150: return "對敏感族群不健康"
+    if aqi <= 200: return "對所有族群不健康"
+    if aqi <= 300: return "非常不健康"
+    return "危害"
 
 
 def _describe_user_profile(profile: dict) -> dict:
@@ -138,6 +166,8 @@ def generate_advice(
     user_profile: dict,
     event_description: str = "無",
     is_downwind: bool = False,
+    forecast_aqi: int = 0,
+    forecast_status: str = "",
 ) -> dict:
     """
     核心 RAG 生成函式。
@@ -180,6 +210,26 @@ def generate_advice(
     # 4. 組合個人化 Prompt
     profile_desc = _describe_user_profile(user_profile)
     downwind_warning = "是，您目前位於污染熱點的下風處，污染物可能隨風飄向您所在位置，請特別注意防護。" if is_downwind else "否"
+    if forecast_aqi > 0:
+        forecast_info = f"預報 AQI {forecast_aqi}（{forecast_status or _aqi_to_status(forecast_aqi)}）"
+    else:
+        forecast_info = "無預報資料"
+    from datetime import timezone, timedelta
+    now = datetime.now(tz=timezone(timedelta(hours=8)))
+    hour = now.hour
+    if 0 <= hour < 6:
+        time_label = "深夜／凌晨"
+    elif hour < 12:
+        time_label = "上午"
+    elif hour < 14:
+        time_label = "中午"
+    elif hour < 18:
+        time_label = "下午"
+    elif hour < 22:
+        time_label = "傍晚／晚上"
+    else:
+        time_label = "深夜"
+    current_time = f"{now.strftime('%H:%M')}（{time_label}）"
     prompt = _ADVICE_PROMPT.format(
         county=county,
         aqi=aqi,
@@ -188,7 +238,9 @@ def generate_advice(
         wind_speed=round(wind_speed, 1) if wind_speed else "未知",
         wind_direction=round(wind_direction) if wind_direction else "未知",
         event_description=event_description if event_description else "無",
+        current_time=current_time,
         downwind_warning=downwind_warning,
+        forecast_info=forecast_info,
         retrieved_knowledge=retrieved_texts or "（無相關健康指引）",
         **profile_desc,
     )

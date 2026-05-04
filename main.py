@@ -15,6 +15,7 @@ from db.reports_db import (
     init_db, insert_report,
     get_recent_reports, get_all_reports,
     get_recent_confirmed_by_county,
+    get_recent_reports_by_region,
 )
 from fcm.token_store import register_token, get_tokens_by_county, get_all_tokens
 from fcm.fcm_sender import send_multicast
@@ -52,6 +53,56 @@ def _scraper_job():
         print(f"⚠️  排程爬蟲失敗：{e}")
 
 
+# ── 空品預報推播排程任務 ──────────────────────────────────────────────────────
+# 記錄已推播過的 (county, forecastdate)，當天內不重複推播同一縣市
+_forecast_pushed: set[tuple[str, str]] = set()
+_forecast_pushed_date: str = ""
+
+
+def _forecast_push_job():
+    """每 2 小時執行：若明天空品惡化（AQI ≥ 101）且當天尚未推播，則立即推播。"""
+    global _forecast_pushed, _forecast_pushed_date
+    today = datetime.now().strftime("%Y-%m-%d")
+    # 跨日重置已推播記錄
+    if _forecast_pushed_date != today:
+        _forecast_pushed = set()
+        _forecast_pushed_date = today
+
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 空品預報推播排程啟動...")
+    try:
+        from crawler.forecast_fetcher import fetch_worsening_forecasts
+        worsening = fetch_worsening_forecasts()
+        if not worsening:
+            print("  ✅ 明日無縣市空品惡化預報，無需推播。")
+            return
+        sent = 0
+        for rec in worsening:
+            county      = rec["region"]
+            forecastdate = rec["published_at"]
+            key = (county, forecastdate)
+            if key in _forecast_pushed:
+                continue  # 當天已推過，跳過
+            tokens = get_tokens_by_county(county)
+            if not tokens:
+                _forecast_pushed.add(key)
+                continue
+            title = f"⚠️ {county}明日空品預警"
+            body  = rec["title"] + ("　" + rec["summary"] if rec["summary"] else "")
+            try:
+                send_multicast(tokens, title=title, body=body, data={"type": "forecast", "county": county})
+                _forecast_pushed.add(key)
+                print(f"  📲 推播：{county} | {len(tokens)} 台裝置")
+                sent += 1
+            except Exception as e:
+                print(f"  ⚠️ 推播失敗：{county} | {e}")
+        if sent:
+            print(f"  ✅ 預報推播完成，共 {sent} 個縣市")
+        else:
+            print("  ✅ 無新預警需推播（已全部推送過）")
+    except Exception as e:
+        print(f"⚠️  預報推播排程失敗：{e}")
+
+
 # ── Lifespan：啟動時初始化 DB 與知識庫 ───────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -72,6 +123,8 @@ async def lifespan(app: FastAPI):
     from datetime import datetime as _dt
     scheduler = BackgroundScheduler()
     scheduler.add_job(_scraper_job, "interval", hours=6, id="news_scraper",
+                      next_run_time=_dt.now())
+    scheduler.add_job(_forecast_push_job, "interval", minutes=30, id="forecast_push",
                       next_run_time=_dt.now())
     scheduler.start()
     print("⏰ 新聞爬蟲排程已啟動（每 6 小時執行一次，啟動時立即執行）")
@@ -99,23 +152,23 @@ def _extract_county_from_location(text: str) -> str | None:
     return None
 
 
-def _fetch_wind_national() -> dict:
-    """取得全台平均風速風向（供熱點分析用）。"""
-    API_KEY = os.getenv("CWA_API_KEY", "")
+def _fetch_wind_national_from_aqi() -> dict:
+    """從環境部 AQI 資料取得全台平均風速風向（供熱點分析用）。"""
+    API_KEY = os.getenv("MOENV_API_KEY", "")
     url = (
-        f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0001-001"
-        f"?Authorization={API_KEY}&format=JSON"
+        f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
+        f"?api_key={API_KEY}&limit=1000&sort=ImportDate desc&format=JSON"
     )
     try:
-        resp = requests.get(url, verify=False, timeout=10)
-        data = resp.json()
-        stations = data.get("records", {}).get("Station", [])
+        resp = requests.get(url, timeout=10)
+        records = resp.json()
+        if not isinstance(records, list):
+            records = records.get("records", [])
         speeds, directions = [], []
-        for s in stations:
-            we = s.get("WeatherElement", {})
+        for r in records:
             try:
-                speeds.append(float(we.get("WindSpeed", 0) or 0))
-                directions.append(float(we.get("WindDirection", 0) or 0))
+                speeds.append(float(r.get("windspeed", 0) or 0))
+                directions.append(float(r.get("winddirection", 0) or 0))
             except (ValueError, TypeError):
                 pass
         if speeds:
@@ -124,7 +177,7 @@ def _fetch_wind_national() -> dict:
                 "wind_direction": round(sum(directions) / len(directions), 1),
             }
     except Exception as e:
-        print(f"全台氣象查詢失敗：{e}")
+        print(f"AQI 全台風速查詢失敗：{e}")
     return {"wind_speed": 0.0, "wind_direction": 0.0}
 
 
@@ -152,7 +205,7 @@ def _geocode_address(address: str) -> tuple | None:
 # ── 輔助函式：取得縣市的 AQI 與氣象資料 ────────────────────────────────────────
 
 def _fetch_aqi_for_county(county: str) -> dict:
-    """內部呼叫：取得縣市最佳代表測站 AQI"""
+    """內部呼叫：取得縣市最佳代表測站 AQI 與風速風向"""
     API_KEY = os.getenv("MOENV_API_KEY", "")
     url = (
         f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
@@ -172,7 +225,6 @@ def _fetch_aqi_for_county(county: str) -> dict:
         if not county_records:
             return {}
 
-        # 取 AQI 最高的測站（最具代表性）
         def safe_aqi(r):
             try:
                 return int(r.get("aqi", 0))
@@ -184,49 +236,12 @@ def _fetch_aqi_for_county(county: str) -> dict:
             "aqi": safe_aqi(best),
             "pm25": float(best.get("pm2.5", 0) or 0),
             "sitename": best.get("sitename", ""),
+            "wind_speed": float(best.get("windspeed", 0) or 0),
+            "wind_direction": float(best.get("winddirection", 0) or 0),
         }
     except Exception as e:
         print(f"AQI 查詢失敗：{e}")
         return {}
-
-
-def _fetch_wind_for_county(county: str) -> dict:
-    """內部呼叫：取得縣市氣象站平均風速風向"""
-    API_KEY = os.getenv("CWA_API_KEY", "")
-    url = (
-        f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0001-001"
-        f"?Authorization={API_KEY}&format=JSON"
-    )
-    try:
-        resp = requests.get(url, verify=False, timeout=10)
-        data = resp.json()
-        stations = data.get("records", {}).get("Station", [])
-
-        norm = normalize_name(county)
-        county_stations = [
-            s for s in stations
-            if normalize_name(s.get("GeoInfo", {}).get("CountyName", "")) == norm
-        ]
-
-        if not county_stations:
-            return {"wind_speed": 0.0, "wind_direction": 0.0}
-
-        speeds, directions = [], []
-        for s in county_stations:
-            we = s.get("WeatherElement", {})
-            try:
-                speeds.append(float(we.get("WindSpeed", 0) or 0))
-                directions.append(float(we.get("WindDirection", 0) or 0))
-            except (ValueError, TypeError):
-                pass
-
-        return {
-            "wind_speed": round(sum(speeds) / len(speeds), 1) if speeds else 0.0,
-            "wind_direction": round(sum(directions) / len(directions), 1) if directions else 0.0,
-        }
-    except Exception as e:
-        print(f"氣象查詢失敗：{e}")
-        return {"wind_speed": 0.0, "wind_direction": 0.0}
 
 
 _TYPE_ZH = {
@@ -258,48 +273,63 @@ def _fetch_user_report_events(county: str) -> str:
 
 
 def _fetch_recent_events_for_region(region: str) -> str:
-    """從 scraped_news.json 撈取近期同地區結構化污染事件描述"""
+    """從 scraped_news.json 與民生示警火災警示撈取近期同地區事件描述"""
+    norm = normalize_name(region)
+    events = []
+
+    # ── 1. 民生示警即時重大火災警示 ──────────────────────────────────────────
+    try:
+        from crawler.fire_alert_scraper import fetch_fire_alerts
+        fire_alerts = fetch_fire_alerts(hours=24)
+        for alert in fire_alerts:
+            alert_county = normalize_name(alert.get("county", ""))
+            area_desc    = normalize_name(alert.get("area_desc", ""))
+            if norm in alert_county or norm in area_desc:
+                desc = alert.get("description", "火災")
+                location = alert.get("area_desc", "")
+                label = f"重大火災警示：{desc}"
+                if location:
+                    label += f"（{location}）"
+                events.append(label)
+    except Exception as e:
+        print(f"民生示警火災查詢失敗：{e}")
+
+    # ── 2. 新聞爬蟲事件 ───────────────────────────────────────────────────────
     try:
         file_path = os.path.join(
             os.path.dirname(__file__), "crawler", "scraped_news.json"
         )
-        if not os.path.exists(file_path):
-            return "無"
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                all_news = json.load(f)
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            all_news = json.load(f)
-
-        norm = normalize_name(region)
-        region_news = [
-            n for n in all_news
-            if norm in normalize_name(n.get("region", ""))
-        ]
-
-        # 只取有確認污染事件的新聞（帶有 structured_event 欄位）
-        confirmed_events = []
-        for n in region_news:
-            se = n.get("structured_event")
-            if se and se.get("is_confirmed_pollution_event"):
-                event_type = se.get("event_type", "unknown")
-                severity = se.get("severity", "unknown")
-                title = n.get("title", "")
-                confirmed_events.append(f"{title}（{event_type}，{severity}）")
-
-        if not confirmed_events:
-            # 若無結構化事件，改用標題關鍵字
-            fire_news = [
-                n["title"] for n in region_news
-                if any(k in n.get("title", "") for k in ["火災", "濃煙", "火警", "大火", "異味"])
+            region_news = [
+                n for n in all_news
+                if norm in normalize_name(n.get("region", ""))
             ]
-            if fire_news:
-                return f"附近有火災/濃煙通報：{fire_news[0]}"
-            return "無"
 
-        return "、".join(confirmed_events[:2])  # 最多回傳 2 筆
+            confirmed_events = []
+            for n in region_news:
+                se = n.get("structured_event")
+                if se and se.get("is_confirmed_pollution_event"):
+                    event_type = se.get("event_type", "unknown")
+                    severity   = se.get("severity", "unknown")
+                    title      = n.get("title", "")
+                    confirmed_events.append(f"{title}（{event_type}，{severity}）")
 
+            if confirmed_events:
+                events.extend(confirmed_events[:2])
+            else:
+                fire_news = [
+                    n["title"] for n in region_news
+                    if any(k in n.get("title", "") for k in ["火災", "濃煙", "火警", "大火", "異味"])
+                ]
+                if fire_news:
+                    events.append(f"附近有火災/濃煙通報：{fire_news[0]}")
     except Exception as e:
-        print(f"事件查詢失敗：{e}")
-        return "無"
+        print(f"新聞事件查詢失敗：{e}")
+
+    return "、".join(events[:3]) if events else "無"
 
 
 # ── Pydantic 模型 ────────────────────────────────────────────────────────────
@@ -357,61 +387,16 @@ def get_air_quality(county: str = None):
         }
 
 
-@app.get("/api/weather")
-def get_weather(county: str = None):
-    API_KEY = os.getenv("CWA_API_KEY", "REPLACE_WITH_YOUR_CWA_API_KEY")
-    url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0001-001?Authorization={API_KEY}&format=JSON"
-
-    try:
-        response = requests.get(url, verify=False)
-        data = response.json()
-
-        raw_records = []
-        if "records" in data and "Station" in data["records"]:
-            raw_records = data["records"]["Station"]
-
-        records = []
-        for r in raw_records:
-            county_name = r.get("GeoInfo", {}).get("CountyName", "")
-            lat, lon = "", ""
-            coordinates = r.get("GeoInfo", {}).get("Coordinates", [])
-            for coord in list(coordinates):
-                if isinstance(coord, dict):
-                    lat = coord.get("StationLatitude", lat)
-                    lon = coord.get("StationLongitude", lon)
-
-            records.append({
-                "sitename": r.get("StationName", ""),
-                "county": county_name,
-                "latitude": lat,
-                "longitude": lon,
-                "WindSpeed": r.get("WeatherElement", {}).get("WindSpeed", "0"),
-                "WindDirection": r.get("WeatherElement", {}).get("WindDirection", "0")
-            })
-
-        if county:
-            norm_county = normalize_name(county)
-            records = [r for r in records if normalize_name(r.get("county", "")) == norm_county]
-
-        return {
-            "status": "success",
-            "county": county,
-            "message": "成功取得氣象署資料",
-            "records": records
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "county": county,
-            "message": f"連線錯誤: {str(e)}",
-            "records": []
-        }
 
 @app.get("/api/user_reports")
-def get_user_reports():
-    """回傳 24 小時內的民眾回報。"""
+def get_user_reports(region: str = None):
+    """回傳 24 小時內的民眾回報；若指定 region 則只回傳該地區。"""
     try:
-        return {"status": "success", "records": get_recent_reports(hours=24)}
+        if region:
+            records = get_recent_reports_by_region(region, hours=24)
+        else:
+            records = get_recent_reports(hours=24)
+        return {"status": "success", "records": records}
     except Exception as e:
         return {"status": "error", "message": str(e), "records": []}
 
@@ -435,7 +420,7 @@ class ReportRequest(BaseModel):
 
 @app.post("/api/report")
 def submit_report(req: ReportRequest):
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone(timedelta(hours=8))).replace(tzinfo=None).isoformat()
 
     # 座標為 null 時，嘗試用 Google Maps API 將地址文字轉換為座標
     lat = req.latitude
@@ -470,9 +455,9 @@ def submit_report(req: ReportRequest):
     if is_confirmed and lat is not None and lng is not None:
         try:
             county = _extract_county_from_location(req.location) or ""
-            wind_data = _fetch_wind_for_county(county) if county else _fetch_wind_national()
-            wind_speed = wind_data.get("wind_speed", 0.0)
-            wind_direction = wind_data.get("wind_direction", 0.0)
+            aqi_wind = _fetch_aqi_for_county(county) if county else _fetch_wind_national_from_aqi()
+            wind_speed = aqi_wind.get("wind_speed", 0.0)
+            wind_direction = aqi_wind.get("wind_direction", 0.0)
 
             affected = get_affected_counties(lat, lng, wind_speed, wind_direction)
             event_type = (se.get("event_type") or "general_air_quality") if se else "general_air_quality"
@@ -586,10 +571,10 @@ def get_rag_advice(req: RagAdviceRequest):
             aqi = aqi_data.get("aqi", 0)
             pm25 = aqi_data.get("pm25", 0.0)
 
-        # 2. 取得氣象資料
-        wind_data = _fetch_wind_for_county(county)
-        wind_speed = wind_data.get("wind_speed", 0.0)
-        wind_direction = wind_data.get("wind_direction", 0.0)
+        # 2. 從 AQI 資料取得風速風向
+        aqi_wind = _fetch_aqi_for_county(county)
+        wind_speed = aqi_wind.get("wind_speed", 0.0)
+        wind_direction = aqi_wind.get("wind_direction", 0.0)
 
         # 3. 取得近期污染事件（新聞 + 民眾回報，合併）
         news_event_desc   = _fetch_recent_events_for_region(county)
@@ -627,7 +612,19 @@ def get_rag_advice(req: RagAdviceRequest):
                     )
                     event_desc = f"{event_desc}；{dw_desc}" if event_desc != "無" else dw_desc
 
-        # 5. 呼叫 RAG 引擎生成建議
+        # 5. 取得明日空品預報
+        forecast_aqi, forecast_status = 0, ""
+        try:
+            from crawler.forecast_fetcher import fetch_latest_forecast, _parse_aqi
+            fc_records = fetch_latest_forecast(county)
+            if fc_records:
+                fc = fc_records[0]
+                forecast_aqi    = _parse_aqi(fc.get("aqi"))
+                forecast_status = fc.get("status", "")
+        except Exception:
+            pass
+
+        # 6. 呼叫 RAG 引擎生成建議
         result = generate_advice(
             county=county,
             aqi=aqi,
@@ -637,6 +634,8 @@ def get_rag_advice(req: RagAdviceRequest):
             user_profile=req.user_profile.model_dump(),
             event_description=event_desc,
             is_downwind=is_downwind,
+            forecast_aqi=forecast_aqi,
+            forecast_status=forecast_status,
         )
 
         return {
@@ -673,7 +672,7 @@ def get_hotspots(min_reports: int = 2, radius_km: float = 1.5, top_n: int = 10):
     無風時自動擴大警戒半徑，並標記擴散條件差。
     """
     try:
-        wind = _fetch_wind_national()
+        wind = _fetch_wind_national_from_aqi()
         hotspots = analyze_hotspots(
             min_reports=min_reports,
             cluster_radius_km=radius_km,
@@ -688,6 +687,68 @@ def get_hotspots(min_reports: int = 2, radius_km: float = 1.5, top_n: int = 10):
         }
     except Exception as e:
         return {"status": "error", "message": str(e), "hotspots": []}
+
+
+# ── 民生示警火災警示 Endpoint ──────────────────────────────────────────────────
+
+@app.get("/api/fire_alerts")
+def get_fire_alerts(region: str = None):
+    """回傳民生示警平台近 24 小時的有效重大火災警示，格式與 /api/news 相容。"""
+    try:
+        from crawler.fire_alert_scraper import fetch_fire_alerts
+        alerts = fetch_fire_alerts(hours=24)
+
+        if region:
+            norm = normalize_name(region)
+            alerts = [
+                a for a in alerts
+                if norm in normalize_name(a.get("county", ""))
+                or norm in normalize_name(a.get("area_desc", ""))
+            ]
+
+        records = [
+            {
+                "source":       "消防署火災警示",
+                "region":       a.get("county", ""),
+                "title":        a.get("description", "重大火災"),
+                "summary":      a.get("area_desc", ""),
+                "url":          a.get("cap_url", ""),
+                "published_at": a.get("updated", ""),
+                "timestamp":    a.get("updated", ""),
+                "latitude":     a.get("latitude"),
+                "longitude":    a.get("longitude"),
+            }
+            for a in alerts
+        ]
+
+        return {"status": "success", "region": region, "message": "", "records": records}
+    except Exception as e:
+        return {"status": "error", "region": region, "message": str(e), "records": []}
+
+
+@app.get("/api/forecast")
+def get_forecast(county: str = None):
+    """回傳今日空品預報摘要，通知中心用。"""
+    try:
+        from crawler.forecast_fetcher import fetch_today_forecasts
+        records = fetch_today_forecasts(county)
+        return {"status": "success", "region": county, "message": "", "records": records}
+    except Exception as e:
+        return {"status": "error", "region": county, "message": str(e), "records": []}
+
+
+@app.get("/api/forecast/raw")
+def get_forecast_raw(county: str = None):
+    """回傳 AQF_P_01 今日完整原始資料，供查閱所有欄位內容。"""
+    try:
+        from crawler.forecast_fetcher import fetch_latest_forecast
+        records = fetch_latest_forecast(county)
+        return {"status": "success", "region": county, "count": len(records), "records": records}
+    except Exception as e:
+        return {"status": "error", "region": county, "message": str(e), "records": []}
+
+
+
 # ── FCM 推播 Endpoints ────────────────────────────────────────────────────────
 
 class TokenRegisterRequest(BaseModel):
