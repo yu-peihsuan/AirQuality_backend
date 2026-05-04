@@ -2,6 +2,7 @@
 # RAG 引擎：混合式檢索 + GPT-4o-mini 生成個人化空氣品質建議
 
 import os
+from datetime import datetime
 from openai import OpenAI
 from rag.embedder import query_knowledge_base
 from rag.health_rules import get_rule_by_aqi, get_rule_by_id
@@ -18,6 +19,7 @@ _ADVICE_PROMPT = """# Role: 貼心且專業的生活顧問
 
 # 當前數據
 - 地點：{county}　AQI：{aqi}（{aqi_level}）　PM2.5：{pm25} µg/m³
+- 現在時間：{current_time}
 - 附近污染事件：{event_description}
 - 下風處警告：{downwind_warning}
 - 空品預報：{forecast_info}
@@ -35,6 +37,7 @@ _ADVICE_PROMPT = """# Role: 貼心且專業的生活顧問
 4. 行動具體化：建議必須具體可執行。寫「戴 N95 出門」取代「注意防護」，寫「今天適合去公園跑步」取代「空氣良好可外出」。
 
 # Execution Strategy
+0. 時間感知：根據現在時間給出合理建議。深夜／凌晨（22:00–06:00）不建議外出活動；早上（06:00–09:00）適合晨運；白天正常建議；傍晚（17:00–19:00）提醒日落前運動。
 1. 切入角度：直接從「健康狀況」或「生活場景」開門見山。
    - 氣喘患者：提醒備藥或避免誘發。
    - 孩童/孕婦：提醒家長留意或調整行程。
@@ -211,6 +214,22 @@ def generate_advice(
         forecast_info = f"預報 AQI {forecast_aqi}（{forecast_status or _aqi_to_status(forecast_aqi)}）"
     else:
         forecast_info = "無預報資料"
+    from datetime import timezone, timedelta
+    now = datetime.now(tz=timezone(timedelta(hours=8)))
+    hour = now.hour
+    if 0 <= hour < 6:
+        time_label = "深夜／凌晨"
+    elif hour < 12:
+        time_label = "上午"
+    elif hour < 14:
+        time_label = "中午"
+    elif hour < 18:
+        time_label = "下午"
+    elif hour < 22:
+        time_label = "傍晚／晚上"
+    else:
+        time_label = "深夜"
+    current_time = f"{now.strftime('%H:%M')}（{time_label}）"
     prompt = _ADVICE_PROMPT.format(
         county=county,
         aqi=aqi,
@@ -219,6 +238,7 @@ def generate_advice(
         wind_speed=round(wind_speed, 1) if wind_speed else "未知",
         wind_direction=round(wind_direction) if wind_direction else "未知",
         event_description=event_description if event_description else "無",
+        current_time=current_time,
         downwind_warning=downwind_warning,
         forecast_info=forecast_info,
         retrieved_knowledge=retrieved_texts or "（無相關健康指引）",
