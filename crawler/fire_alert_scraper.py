@@ -38,8 +38,15 @@ def _parse_circle(circle_str: str) -> tuple[float, float] | None:
     """解析 CAP circle 欄位，回傳 (lat, lng)。格式：'lat,lng radius'"""
     try:
         coord_part = circle_str.strip().split(" ")[0]
-        lat, lng = coord_part.split(",")
-        return float(lat), float(lng)
+        a, b = coord_part.split(",")
+        a, b = float(a), float(b)
+        # 台灣座標範圍：lat 21.5–25.5、lng 118.0–122.5
+        if 21.5 <= a <= 25.5 and 118.0 <= b <= 122.5:
+            return a, b
+        # 嘗試 lng,lat 順序
+        if 21.5 <= b <= 25.5 and 118.0 <= a <= 122.5:
+            return b, a
+        return None
     except Exception:
         return None
 

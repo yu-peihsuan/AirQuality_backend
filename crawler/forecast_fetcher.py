@@ -97,18 +97,27 @@ def fetch_latest_forecast(county: str = None) -> list[dict]:
 
 
 def _parse_trend(content: str, area: str = "") -> str:
+    """從預報文字中判斷趨勢，回傳簡短描述。"""
+    if not content:
+        return ""
+    worsening = ["轉差", "惡化", "升高", "增加", "不良", "偏差", "加重", "累積", "偏高", "污染", "汙染"]
+    improving = ["改善", "好轉", "降低", "減少", "轉好", "趨緩", "消散", "減輕", "偏低", "趨好"]
+    if any(k in content for k in worsening):
+        return "空氣品質預計將變差"
+    if any(k in content for k in improving):
+        return "空氣品質預計將改善"
+    return "空氣品質預計維持穩定"
+
+
+def _parse_trend_detail(content: str, area: str = "") -> str:
     """
-    從預報文字中提取該空品區的相關描述。
-    優先抓含空品區名稱的句子，找不到則回傳前兩句概況。
+    從預報文字中提取該空品區的相關句子（供 RAG 使用）。
     """
     if not content:
         return ""
-
-    # 將內容按句分割（支援 \n、。、；）
     import re
     sentences = re.split(r'[；。\n]', content)
     sentences = [s.strip() for s in sentences if s.strip()]
-
     area_short = area.replace("空品區", "").replace("空氣品質區", "")
 
     # 優先：找含空品區名稱的句子（今日狀況段落）
@@ -139,7 +148,7 @@ def fetch_today_forecasts(county: str = None) -> list[dict]:
             "source":       "空品預報",
             "region":       location,
             "title":        f"{location} 空品預報：{status}",
-            "summary":      r.get("content", ""),
+            "summary":      _parse_trend(r.get("content", "")),
             "url":          "",
             "published_at": publishtime,
             "timestamp":    "",

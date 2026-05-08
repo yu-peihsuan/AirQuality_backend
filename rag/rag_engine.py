@@ -20,6 +20,8 @@ _ADVICE_PROMPT = """# Role: 貼心且專業的生活顧問
 # 當前數據
 - 地點：{county}　AQI：{aqi}（{aqi_level}）　PM2.5：{pm25} µg/m³
 - 現在時間：{current_time}
+- 天氣狀況：{weather_info}
+- 天氣預報：{weather_forecast}
 - 附近污染事件：{event_description}
 - 下風處警告：{downwind_warning}
 - 空品預報：{forecast_info}
@@ -37,7 +39,7 @@ _ADVICE_PROMPT = """# Role: 貼心且專業的生活顧問
 4. 行動具體化：建議必須具體可執行。寫「戴 N95 出門」取代「注意防護」，寫「今天適合去公園跑步」取代「空氣良好可外出」。
 
 # Execution Strategy
-0. 時間感知：根據現在時間給出合理建議。深夜／凌晨（22:00–06:00）不建議外出活動；早上（06:00–09:00）適合晨運；白天正常建議；傍晚（17:00–19:00）提醒日落前運動。
+0. 時間與天氣感知：深夜／凌晨（22:00–06:00）不建議外出活動；正在下雨時即使空氣好也不建議戶外運動；氣溫 ≥ 33°C 提醒防曬補水；氣溫 ≤ 10°C 提醒保暖與心肺負擔。
 1. 切入角度：直接從「健康狀況」或「生活場景」開門見山。
    - 氣喘患者：提醒備藥或避免誘發。
    - 孩童/孕婦：提醒家長留意或調整行程。
@@ -168,6 +170,10 @@ def generate_advice(
     is_downwind: bool = False,
     forecast_aqi: int = 0,
     forecast_status: str = "",
+    temperature: float = 0.0,
+    weather_desc: str = "",
+    is_raining: bool = False,
+    weather_forecast: str = "",
 ) -> dict:
     """
     核心 RAG 生成函式。
@@ -230,6 +236,18 @@ def generate_advice(
     else:
         time_label = "深夜"
     current_time = f"{now.strftime('%H:%M')}（{time_label}）"
+    rain_note = "（⚠️ 目前正在下雨）" if is_raining else ""
+    if weather_desc:
+        weather_info = f"{weather_desc}{rain_note}"
+    elif temperature > 0:
+        if temperature >= 33:   temp_label = "高溫炎熱"
+        elif temperature >= 28: temp_label = "偏熱"
+        elif temperature >= 15: temp_label = "舒適"
+        elif temperature >= 10: temp_label = "偏涼"
+        else:                   temp_label = "低溫寒冷"
+        weather_info = f"{temperature}°C（{temp_label}）{rain_note}"
+    else:
+        weather_info = f"無資料{rain_note}"
     prompt = _ADVICE_PROMPT.format(
         county=county,
         aqi=aqi,
@@ -239,6 +257,8 @@ def generate_advice(
         wind_direction=round(wind_direction) if wind_direction else "未知",
         event_description=event_description if event_description else "無",
         current_time=current_time,
+        weather_info=weather_info,
+        weather_forecast=weather_forecast if weather_forecast else "無資料",
         downwind_warning=downwind_warning,
         forecast_info=forecast_info,
         retrieved_knowledge=retrieved_texts or "（無相關健康指引）",
