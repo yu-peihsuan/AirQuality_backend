@@ -238,6 +238,7 @@ def _fetch_aqi_for_county(county: str) -> dict:
             "sitename": best.get("sitename", ""),
             "wind_speed": float(best.get("windspeed", 0) or 0),
             "wind_direction": float(best.get("winddirection", 0) or 0),
+            "temperature": float(best.get("temperature", 0) or 0),
         }
     except Exception as e:
         print(f"AQI 查詢失敗：{e}")
@@ -571,10 +572,21 @@ def get_rag_advice(req: RagAdviceRequest):
             aqi = aqi_data.get("aqi", 0)
             pm25 = aqi_data.get("pm25", 0.0)
 
-        # 2. 從 AQI 資料取得風速風向
+        # 2. 從 AQI 資料取得風速風向與溫度
         aqi_wind = _fetch_aqi_for_county(county)
         wind_speed = aqi_wind.get("wind_speed", 0.0)
         wind_direction = aqi_wind.get("wind_direction", 0.0)
+        temperature = aqi_wind.get("temperature", 0.0)
+
+        # 3. 取得即時天氣（降雨、天氣描述）
+        from crawler.weather_fetcher import fetch_weather_for_county, fetch_weather_forecast_for_county
+        weather_data     = fetch_weather_for_county(county)
+        weather_desc     = weather_data.get("description", "")
+        is_raining       = weather_data.get("is_raining", False)
+        weather_forecast = fetch_weather_forecast_for_county(county)
+        # 氣象署有溫度時優先使用，補足 AQI 溫度資料
+        if weather_data.get("temp") is not None:
+            temperature = weather_data["temp"]
 
         # 3. 取得近期污染事件（新聞 + 民眾回報，合併）
         news_event_desc   = _fetch_recent_events_for_region(county)
@@ -636,6 +648,10 @@ def get_rag_advice(req: RagAdviceRequest):
             is_downwind=is_downwind,
             forecast_aqi=forecast_aqi,
             forecast_status=forecast_status,
+            temperature=temperature,
+            weather_desc=weather_desc,
+            is_raining=is_raining,
+            weather_forecast=weather_forecast,
         )
 
         return {
