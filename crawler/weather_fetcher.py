@@ -3,6 +3,7 @@
 
 import os
 import requests
+from datetime import datetime, timezone, timedelta
 
 _CWA_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0003-001"
 
@@ -142,6 +143,26 @@ def _pop_to_level(pop: int) -> str:
     return "高"
 
 
+def _current_period(periods: list) -> dict | None:
+    """從時段清單中找到目前時間在有效範圍內的那筆，找不到則取最近未來時段。"""
+    now = datetime.now(tz=timezone(timedelta(hours=8)))
+    future = None
+    for p in periods:
+        try:
+            start = datetime.fromisoformat(p["startTime"].replace(" ", "T"))
+            end   = datetime.fromisoformat(p["endTime"].replace(" ", "T"))
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=timezone(timedelta(hours=8)))
+                end   = end.replace(tzinfo=timezone(timedelta(hours=8)))
+            if start <= now <= end:
+                return p
+            if start > now and future is None:
+                future = p
+        except Exception:
+            continue
+    return future  # 找不到當前時段，回傳最近的未來時段
+
+
 def fetch_weather_forecast_for_county(county: str) -> str:
     """
     從 F-C0032-001 取得縣市今明天氣預報，
@@ -150,11 +171,13 @@ def fetch_weather_forecast_for_county(county: str) -> str:
     api_key = os.getenv("CWA_API_KEY", "")
     if not api_key:
         return ""
+    # CWA API 使用「臺」，統一轉換
+    cwa_county = county.replace("台", "臺")
     try:
         resp = requests.get(
             _FORECAST_URL,
             params={"Authorization": api_key, "format": "JSON",
-                    "locationName": county},
+                    "locationName": cwa_county},
             timeout=10,
         )
         data = resp.json()
@@ -165,13 +188,13 @@ def fetch_weather_forecast_for_county(county: str) -> str:
         loc = locations[0]
         elements = {e["elementName"]: e["time"] for e in loc.get("weatherElement", [])}
 
-        # 取最近時段的天氣現象與降雨機率
-        wx_periods  = elements.get("Wx", [])
-        pop_periods = elements.get("PoP", [])
+        # 取當前有效時段
+        wx_period  = _current_period(elements.get("Wx",  []))
+        pop_period = _current_period(elements.get("PoP", []))
 
-        wx  = wx_periods[0]["parameter"]["parameterName"]  if wx_periods  else ""
+        wx = wx_period["parameter"]["parameterName"] if wx_period else ""
         try:
-            pop = int(pop_periods[0]["parameter"]["parameterName"]) if pop_periods else 0
+            pop = int(pop_period["parameter"]["parameterName"]) if pop_period else 0
         except (ValueError, TypeError):
             pop = 0
 
