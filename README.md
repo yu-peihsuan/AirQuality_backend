@@ -1,113 +1,221 @@
-﻿# AirQuality App — Backend
+# AirQuality App — Backend
 
-本專案使用 **Python + FastAPI**，並以 **Docker Compose** 統一管理後端伺服器（以及未來擴充的 ChromaDB 向量資料庫等服務）。
+台灣空氣品質即時監測 App 的後端服務，使用 **Python + FastAPI** 開發，整合多個開放資料平台與 AI 建議系統。
 
-## 專案啟動方式
+---
 
-### 1 建立 `.env` 檔案（第一次啟動必做，之後不需重複執行）
+## 系統架構
 
-請依照專案內提供的 `.env.example` 範本，新增並建立自己的 `.env` 檔案：
+```
+FastAPI (main.py)
+├── 空氣品質 API        ← 環境部 MOENV AQI 資料
+├── 新聞爬蟲            ← Google News / Yahoo / 公視 RSS（每 6 小時排程）
+├── 民眾回報系統        ← SQLite 資料庫 + LLM 語意分析
+├── 民生示警火災        ← NCDR CAP XML 解析
+├── 空品預報            ← 環境部 AQF_P_01（每 30 分鐘更新）
+├── 天氣資訊            ← 中央氣象署 O-A0003-001 / F-C0032-001
+├── RAG AI 健康顧問     ← ChromaDB + GPT-4o-mini（OpenRouter）
+├── GIS 熱點分析        ← KDE 核密度估計 + 風向下風處判斷
+└── FCM 推播通知        ← Firebase Cloud Messaging（每 30 分鐘排程）
+```
+
+---
+
+## 環境變數設定
+
+請複製 `.env.example` 並填入金鑰：
 
 ```bash
 cp .env.example .env
 ```
 
-`.env` 內包含所需的 `MOENV_API_KEY`（台灣環境部開放資料平台 API 金鑰）。為了確保成功取得 AQI 資料，請務必更換為您自己申請的 API Key，或暫時使用預設範例金鑰。
+| 變數名稱 | 說明 | 來源 |
+|---------|------|------|
+| `MOENV_API_KEY` | 環境部開放資料 API Key | [data.moenv.gov.tw](https://data.moenv.gov.tw) |
+| `OPENROUTER_API_KEY` | OpenRouter LLM API Key | [openrouter.ai](https://openrouter.ai) |
+| `MAPS_API_KEY` | Google Maps Geocoding API Key | Google Cloud Console |
+| `CWA_API_KEY` | 中央氣象署開放資料 API Key | [opendata.cwa.gov.tw](https://opendata.cwa.gov.tw) |
 
-> ⚠️ `.env` 檔案內含機密資訊，已被加入 `.gitignore` 中不會被上傳到 GitHub，請每位開發者自行建立。
+> `.env` 已加入 `.gitignore`，請勿上傳至 GitHub。
 
 ---
 
-### 2 使用 Docker Compose 啟動整套服務
+## 啟動方式
 
-在專案目錄下執行以下指令開啟服務：
+### Docker（推薦）
 
 ```bash
 docker compose up -d --build
 ```
 
-### 3 若有修改程式碼或環境變數
-
-如果您有進一步修改 `main.py` 或是 `.env` 中的金鑰內容，為確保留新的設定檔套用，請執行以下指令重新啟動容器：
+重啟（修改程式碼或 `.env` 後）：
 
 ```bash
-docker compose restart
+docker compose down
+docker compose up -d --build
 ```
 
----
-
-### 4 查看後端 Log & 測試 API 狀態
-
-#### 追蹤後端運行 Log
+查看 Log：
 
 ```bash
 docker compose logs -f backend_api
 ```
 
----
-
-### 5 API 端點總覽
-
-後端啟動後可透過以下網址存取。所有 POST 端點可在 **Swagger UI** 互動測試：
-**http://localhost:8000/docs**
-
-#### 基本
-
-| 方法 | 網址 | 說明 |
-|------|------|------|
-| GET | `http://localhost:8000/` | 確認後端是否正常運行 |
-| GET | `http://localhost:8000/docs` | Swagger UI，可測試所有 API |
-
-#### 空氣品質 / 氣象
-
-| 方法 | 網址 | 說明 |
-|------|------|------|
-| GET | `http://localhost:8000/api/air_quality` | 全台 AQI 資料 |
-| GET | `http://localhost:8000/api/air_quality?county=台北市` | 指定縣市 AQI |
-| GET | `http://localhost:8000/api/weather` | 全台氣象資料 |
-| GET | `http://localhost:8000/api/weather?county=台北市` | 指定縣市氣象 |
-
-#### 新聞 / 民眾回報
-
-| 方法 | 網址 | 說明 |
-|------|------|------|
-| GET | `http://localhost:8000/api/news` | 全部爬蟲新聞 |
-| GET | `http://localhost:8000/api/news?region=台北市` | 指定地區新聞 |
-| GET | `http://localhost:8000/api/user_reports` | 24 小時內民眾回報 |
-| GET | `http://localhost:8000/api/user_reports/history` | 所有歷史回報 |
-| POST | `http://localhost:8000/api/report` | 提交民眾回報 |
-
-#### RAG 個人化建議
-
-| 方法 | 網址 | 說明 |
-|------|------|------|
-| POST | `http://localhost:8000/api/rag_advice` | 取得個人化空氣品質建議 |
-
-#### GIS 熱點分析
-
-| 方法 | 網址 | 說明 |
-|------|------|------|
-| GET | `http://localhost:8000/api/hotspots` | 熱點分析結果 |
-| GET | `http://localhost:8000/api/hotspots?min_reports=2&radius_km=1.5&top_n=10` | 自訂參數 |
-
-> **RAG 建議回應新增欄位**（需傳入 `latitude`/`longitude`）：
-> - `is_downwind: bool` — 使用者是否在污染熱點下風處
-> - `downwind_sources: list` — 上風側污染熱點清單（含 `distance_km`、`bearing_to_user`）
-> - 事件描述（`event_context`）現在同時整合新聞爬蟲與民眾回報兩個來源
-
-#### FCM 推播
-
-| 方法 | 網址 | 說明 |
-|------|------|------|
-| GET | `http://localhost:8000/api/fcm/test` | 推播測試通知給所有裝置 |
-| POST | `http://localhost:8000/api/fcm/register` | 裝置註冊 FCM Token |
-| POST | `http://localhost:8000/api/fcm/push` | 手動推播（指定縣市或全部） |
-
----
-
-### 6 執行爬蟲程式
+### 本機開發（不使用 Docker）
 
 ```bash
-docker compose exec backend_api python crawler/news_scraper.py
+pip install -r requirements.txt
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+---
+
+## API 端點總覽
+
+後端啟動後，可用 **Swagger UI** 互動測試所有端點：
+**http://localhost:8000/docs**
+
+### 基本
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/` | 確認後端是否正常運行 |
+| GET | `/docs` | Swagger UI |
+
+---
+
+### 空氣品質
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/api/air_quality` | 全台 AQI 資料 |
+| GET | `/api/air_quality?county=台南市` | 指定縣市 AQI |
+
+---
+
+### 新聞 / 事件
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/api/news` | 全部爬蟲新聞（24 小時內） |
+| GET | `/api/news?region=台南市` | 指定地區新聞 |
+| GET | `/api/fire_alerts` | 民生示警平台重大火災警示（24 小時內） |
+| GET | `/api/fire_alerts?region=台南市` | 指定地區火災警示 |
+
+---
+
+### 空品預報
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/api/forecast` | 今日空品預報摘要（通知中心用） |
+| GET | `/api/forecast?county=台南市` | 指定縣市預報摘要 |
+| GET | `/api/forecast/raw` | AQF_P_01 今日完整原始資料 |
+| GET | `/api/forecast/raw?county=台南市` | 指定縣市完整預報 |
+
+---
+
+### 民眾回報
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/api/user_reports` | 24 小時內確認污染回報 |
+| GET | `/api/user_reports?region=台南市` | 指定地區回報 |
+| GET | `/api/user_reports/history` | 所有歷史回報 |
+| POST | `/api/report` | 提交民眾回報 |
+
+POST `/api/report` 請求格式：
+```json
+{
+  "location": "台南市中西區",
+  "category": "fire",
+  "description": "附近有濃煙",
+  "latitude": 23.0,
+  "longitude": 120.2
+}
+```
+
+---
+
+### RAG AI 健康顧問
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| POST | `/api/rag_advice` | 取得個人化空氣品質建議 |
+
+POST `/api/rag_advice` 請求格式：
+```json
+{
+  "county": "台南市",
+  "latitude": 23.0,
+  "longitude": 120.2,
+  "aqi": 85,
+  "pm25": 35.2,
+  "user_profile": {
+    "age_group": "adult",
+    "is_pregnant": false,
+    "has_asthma": false,
+    "has_cardiovascular": false,
+    "has_allergy": false
+  }
+}
+```
+
+建議整合資訊：
+- 當前 AQI / PM2.5
+- 即時天氣（溫度、降雨、天氣描述）
+- 天氣預報（降雨機率）
+- 附近污染事件（新聞 + 民眾回報 + 火災警示）
+- 空品預報趨勢
+- 下風處熱點判斷
+- 當前時間（避免深夜建議外出）
+
+---
+
+### GIS 熱點分析
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/api/hotspots` | 污染熱點分析（預設參數） |
+| GET | `/api/hotspots?min_reports=2&radius_km=1.5&top_n=10` | 自訂參數 |
+
+---
+
+### FCM 推播通知
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| POST | `/api/fcm/register` | 裝置上傳 FCM Token |
+| POST | `/api/fcm/push` | 手動推播（指定縣市或全部） |
+| GET | `/api/fcm/test` | 推播測試通知給所有已註冊裝置 |
+
+POST `/api/fcm/push` 請求格式：
+```json
+{
+  "county": "台南市",
+  "title": "空品警示",
+  "body": "今日 AQI 超過 150，請注意防護"
+}
+```
+
+---
+
+## 排程任務
+
+| 任務 | 頻率 | 說明 |
+|------|------|------|
+| 新聞爬蟲 | 每 6 小時 | 抓取 Google News / Yahoo / 公視，LLM 語意過濾 |
+| 空品預報推播 | 每 30 分鐘 | 偵測 AQI ≥ 101 自動推播，當日同縣市不重複推 |
+
+---
+
+## 主要資料來源
+
+| 資料 | 來源 |
+|------|------|
+| AQI 即時資料 | 環境部 `aqx_p_432` |
+| 空品預報 | 環境部 `AQF_P_01`（每 30 分鐘） |
+| 即時天氣 | 中央氣象署 `O-A0003-001` |
+| 天氣預報 | 中央氣象署 `F-C0032-001`（今明 36 小時） |
+| 重大火災警示 | NCDR 民生示警平台 CAP 格式 |
+| 新聞 | Google News / Yahoo 新聞 / 公共電視 RSS |
