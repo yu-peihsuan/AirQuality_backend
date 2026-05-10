@@ -753,6 +753,26 @@ def get_forecast(county: str = None):
         return {"status": "error", "region": county, "message": str(e), "records": []}
 
 
+@app.get("/api/weather")
+def get_weather(county: str = None):
+    """回傳指定縣市即時天氣，供 App 首頁判斷是否下雨。"""
+    try:
+        from crawler.weather_fetcher import fetch_weather_for_county
+        if not county:
+            return {"status": "error", "message": "請提供 county 參數"}
+        data = fetch_weather_for_county(county)
+        return {
+            "status":      "success",
+            "county":      county,
+            "is_raining":  data.get("is_raining", False),
+            "weather":     data.get("weather", ""),
+            "temp":        data.get("temp"),
+            "description": data.get("description", ""),
+        }
+    except Exception as e:
+        return {"status": "error", "county": county, "message": str(e), "is_raining": False}
+
+
 @app.get("/api/forecast/raw")
 def get_forecast_raw(county: str = None):
     """回傳 AQF_P_01 今日完整原始資料，供查閱所有欄位內容。"""
