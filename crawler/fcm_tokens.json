@@ -1,7 +1,10 @@
 [
   {
     "token": "fw6T39qLRpmAhLkIzHVf-p:APA91bH4cqBntmbKYoEyDe10B2BauK-DS1KsSTMIj0e8FjU1qiMf0G2EaZk0uCf85dMg9hH-SZag_bLMj9qa8bLtEMpYiQBc1xeXq6DBObOznpkMsVEEZ8o",
-    "county": "苗栗縣"
+    "county": "苗栗縣",
+    "conditions": "過敏",
+    "lat": 24.5063033,
+    "lng": 120.715755
   },
   {
     "token": "eeqFh2jSTBOPucawDnTpgB:APA91bFeZ-IkasJmQ21DbtL9YUtZpKtG5_IVogSS-k1AgvdBhciQswHkrbt0rU5XnKgVQVb4Qblrdz27cBw-HN7ZBRUZZksa44DcPrx_eqI7qmpFc7a8wFs",

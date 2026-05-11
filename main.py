@@ -86,8 +86,8 @@ def _forecast_push_job():
             if not tokens:
                 _forecast_pushed.add(key)
                 continue
-            title = f"⚠️ {county}明日空品預警"
-            body  = rec["title"] + ("　" + rec["summary"] if rec["summary"] else "")
+            title = f"空品預報｜{county}"
+            body  = rec["summary"] or rec["title"]
             try:
                 send_multicast(tokens, title=title, body=body, data={"type": "forecast", "county": county})
                 _forecast_pushed.add(key)
@@ -101,6 +101,99 @@ def _forecast_push_job():
             print("  ✅ 無新預警需推播（已全部推送過）")
     except Exception as e:
         print(f"⚠️  預報推播排程失敗：{e}")
+
+
+# ── 火災警示推播 ──────────────────────────────────────────────────────────────
+_fire_pushed: set[str] = set()  # 已推播過的 alert ID
+
+def _fire_alert_push_job():
+    """每 10 分鐘：有新重大火災警示就推播給受影響縣市。"""
+    global _fire_pushed
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 火災警示推播排程啟動...")
+    try:
+        from crawler.fire_alert_scraper import fetch_fire_alerts
+        alerts = fetch_fire_alerts(hours=2)
+        sent = 0
+        for alert in alerts:
+            aid = alert.get("id", "")
+            if not aid or aid in _fire_pushed:
+                continue
+            county = alert.get("county", "")
+            tokens = get_tokens_by_county(county)
+            if not tokens:
+                _fire_pushed.add(aid)
+                continue
+            title = f"🔥 火災警示｜{county}"
+            body  = alert.get("area_desc", "") or alert.get("description", "重大火災")
+            try:
+                send_multicast(tokens, title=title, body=body.strip(), data={"type": "fire", "county": county})
+                _fire_pushed.add(aid)
+                sent += 1
+                print(f"  📲 火災推播：{county} | {len(tokens)} 台裝置")
+            except Exception as e:
+                print(f"  ⚠️ 火災推播失敗：{e}")
+        if sent:
+            print(f"  ✅ 火災警示推播完成，共 {sent} 筆")
+    except Exception as e:
+        print(f"⚠️  火災推播排程失敗：{e}")
+
+
+# ── AQI 超標推播 ──────────────────────────────────────────────────────────────
+_aqi_alerted: dict[str, int] = {}  # county -> last pushed AQI band (0=normal,1=sensitive,2=all)
+
+def _aqi_alert_push_job():
+    """每 30 分鐘：AQI ≥ 151 推全體；AQI 101-150 推敏感族群。"""
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ AQI 超標推播排程啟動...")
+    try:
+        API_KEY = os.getenv("MOENV_API_KEY", "")
+        url = (f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
+               f"?api_key={API_KEY}&limit=1000&sort=ImportDate desc&format=JSON")
+        resp = requests.get(url, timeout=10)
+        records = resp.json()
+        if not isinstance(records, list):
+            records = records.get("records", [])
+
+        # 以縣市分組取最高 AQI
+        county_max: dict[str, int] = {}
+        for r in records:
+            county = r.get("county", "")
+            try:
+                aqi = int(r.get("aqi", 0))
+            except (ValueError, TypeError):
+                continue
+            if aqi > county_max.get(county, 0):
+                county_max[county] = aqi
+
+        for county, aqi in county_max.items():
+            prev_band = _aqi_alerted.get(county, 0)
+            if aqi >= 151:
+                band = 2
+                if band <= prev_band:
+                    continue
+                tokens = get_tokens_by_county(county)
+                title = f"🔴 空氣危害｜{county}"
+                body  = f"AQI {aqi}，請盡量待室內"
+            elif aqi >= 101:
+                band = 1
+                if band <= prev_band:
+                    continue
+                from fcm.token_store import get_sensitive_tokens_by_county
+                tokens = get_sensitive_tokens_by_county(county)
+                title = f"⚠️ 空氣警示｜{county}"
+                body  = f"AQI {aqi}，敏感族群注意防護"
+            else:
+                _aqi_alerted[county] = 0
+                continue
+            if not tokens:
+                continue
+            try:
+                send_multicast(tokens, title=title, body=body, data={"type": "aqi", "county": county})
+                _aqi_alerted[county] = band
+                print(f"  📲 AQI 推播：{county} AQI {aqi} | {len(tokens)} 台裝置")
+            except Exception as e:
+                print(f"  ⚠️ AQI 推播失敗：{county} | {e}")
+    except Exception as e:
+        print(f"⚠️  AQI 推播排程失敗：{e}")
 
 
 # ── Lifespan：啟動時初始化 DB 與知識庫 ───────────────────────────────────────
@@ -124,8 +217,9 @@ async def lifespan(app: FastAPI):
     scheduler = BackgroundScheduler()
     scheduler.add_job(_scraper_job, "interval", hours=6, id="news_scraper",
                       next_run_time=_dt.now())
-    scheduler.add_job(_forecast_push_job, "interval", minutes=30, id="forecast_push",
-                      next_run_time=_dt.now())
+    scheduler.add_job(_forecast_push_job,    "interval", minutes=30, id="forecast_push",   next_run_time=_dt.now())
+    scheduler.add_job(_fire_alert_push_job,  "interval", minutes=10, id="fire_alert_push", next_run_time=_dt.now())
+    scheduler.add_job(_aqi_alert_push_job,   "interval", minutes=30, id="aqi_alert_push",  next_run_time=_dt.now())
     scheduler.start()
     print("⏰ 新聞爬蟲排程已啟動（每 6 小時執行一次，啟動時立即執行）")
 
@@ -464,13 +558,6 @@ def submit_report(req: ReportRequest):
             event_type = (se.get("event_type") or "general_air_quality") if se else "general_air_quality"
             type_label = _TYPE_ZH.get(event_type, "污染事件")
 
-            if wind_speed < 1.0:
-                body = (f"{req.location} 發生{type_label}，目前近乎無風，"
-                        f"污染物擴散條件差，周邊地區請注意空氣品質。")
-            else:
-                body = (f"{req.location} 發生{type_label}，"
-                        f"下風處地區請注意空氣品質，建議減少戶外活動。")
-
             tokens = list({
                 t for c in affected
                 for t in get_tokens_by_county(normalize_name(c))
@@ -478,11 +565,23 @@ def submit_report(req: ReportRequest):
             if tokens:
                 send_multicast(
                     tokens,
-                    title=f"⚠️ 空氣污染警報：{type_label}",
-                    body=body,
+                    title=f"[民報] {type_label}",
+                    body=req.description[:50] if req.description else type_label,
                     data={"type": event_type},
                 )
                 print(f"✅ FCM 推播：{type_label} @ {req.location}，推送 {len(tokens)} 台裝置")
+
+            # 附近 5km 裝置也推播（精準通知）
+            from fcm.token_store import get_tokens_near
+            nearby_tokens = [t for t in get_tokens_near(lat, lng, radius_km=5.0) if t not in tokens]
+            if nearby_tokens:
+                send_multicast(
+                    nearby_tokens,
+                    title=f"[民眾回報] 📍 附近{type_label}",
+                    body=req.description[:50] if req.description else type_label,
+                    data={"type": event_type},
+                )
+                print(f"✅ 附近裝置推播：{len(nearby_tokens)} 台")
         except Exception as e:
             print(f"⚠️ FCM 推播失敗：{e}")
 
@@ -786,15 +885,18 @@ def get_forecast_raw(county: str = None):
 # ── FCM 推播 Endpoints ────────────────────────────────────────────────────────
 
 class TokenRegisterRequest(BaseModel):
-    token: str
-    county: str = ""
+    token:      str
+    county:     str   = ""
+    lat:        float = None
+    lng:        float = None
+    conditions: str   = ""  # 健康狀況，逗號分隔，如「氣喘,心血管疾病」
 
 
 @app.post("/api/fcm/register")
 def register_fcm_token(req: TokenRegisterRequest):
-    """App 啟動時上傳裝置 FCM Token 與所在縣市。"""
+    """App 啟動時上傳裝置 FCM Token、縣市、座標、健康狀況。"""
     try:
-        register_token(req.token, req.county)
+        register_token(req.token, req.county, req.lat, req.lng, req.conditions)
         return {"status": "success", "message": "Token 已註冊"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
