@@ -580,7 +580,7 @@ def get_rag_advice(req: RagAdviceRequest):
 
         # 3. 取得即時天氣（降雨、天氣描述）
         from crawler.weather_fetcher import fetch_weather_for_county, fetch_weather_forecast_for_county
-        weather_data     = fetch_weather_for_county(county)
+        weather_data     = fetch_weather_for_county(county, lat=req.latitude, lng=req.longitude)
         weather_desc     = weather_data.get("description", "")
         is_raining       = weather_data.get("is_raining", False)
         weather_forecast = fetch_weather_forecast_for_county(county)
@@ -754,13 +754,11 @@ def get_forecast(county: str = None):
 
 
 @app.get("/api/weather")
-def get_weather(county: str = None):
-    """回傳指定縣市即時天氣，供 App 首頁判斷是否下雨。"""
+def get_weather(county: str = None, lat: float = None, lng: float = None):
+    """回傳即時天氣，需提供 lat/lng 以找最近測站。"""
     try:
         from crawler.weather_fetcher import fetch_weather_for_county
-        if not county:
-            return {"status": "error", "message": "請提供 county 參數"}
-        data = fetch_weather_for_county(county)
+        data = fetch_weather_for_county(county or "", lat=lat, lng=lng)
         return {
             "status":      "success",
             "county":      county,

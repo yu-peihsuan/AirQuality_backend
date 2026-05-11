@@ -14,16 +14,35 @@ def _normalize_county(county: str) -> str:
     return county.replace("臺", "台").rstrip("市縣")
 
 
-def fetch_weather_for_county(county: str) -> dict:
+def _station_coords(station: dict) -> tuple[float, float] | None:
+    """從測站 GeoInfo.Coordinates 取得 (lat, lng)。"""
+    try:
+        for c in station.get("GeoInfo", {}).get("Coordinates", []):
+            lat = c.get("StationLatitude")
+            lng = c.get("StationLongitude")
+            if lat and lng:
+                return float(lat), float(lng)
+    except Exception:
+        pass
+    return None
+
+
+def _haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    import math
+    R = 6371.0
+    d_lat = math.radians(lat2 - lat1)
+    d_lng = math.radians(lng2 - lng1)
+    a = (math.sin(d_lat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+         * math.sin(d_lng / 2) ** 2)
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def fetch_weather_for_county(county: str, lat: float = None, lng: float = None) -> dict:
     """
-    取得指定縣市的當前天氣概況。
-    回傳 dict：
-        weather     : 天氣描述（e.g. "陰有雨"）
-        temp        : 氣溫（°C，float）
-        humidity    : 相對濕度（%，int）
-        rain_mm     : 當前降水量（mm/hr，float）
-        is_raining  : bool
-        description : 給 Prompt 用的自然語言描述
+    取得當前天氣概況。
+    有提供 lat/lng → 全台測站找最近的（最準確）。
+    只有 county → 縣市過濾後取有降水資料的測站。
     """
     api_key = os.getenv("CWA_API_KEY", "")
     if not api_key:
@@ -41,22 +60,23 @@ def fetch_weather_for_county(county: str) -> dict:
             or data.get("records", [])
         )
 
-        norm = _normalize_county(county)
-        matched = [
-            s for s in stations
-            if norm in _normalize_county(
-                s.get("GeoInfo", {}).get("CountyName", "")
-                or s.get("CountyName", "")
-            )
-        ]
-        if not matched:
-            return _empty("查無該縣市測站")
+        if lat is None or lng is None:
+            return _empty("需要提供座標才能找到最近測站")
 
-        # 選有降水資料的測站優先，其次取第一筆
-        station = next(
-            (s for s in matched if _get_rain(s) is not None),
-            matched[0]
-        )
+        # 全台找最近測站（純座標判斷，不靠縣市名稱）
+        best, best_dist = None, float("inf")
+        for s in stations:
+            coords = _station_coords(s)
+            if coords is None:
+                continue
+            d = _haversine(lat, lng, coords[0], coords[1])
+            if d < best_dist:
+                best_dist = d
+                best = s
+        if best is None:
+            return _empty("找不到鄰近氣象測站")
+        station = best
+        print(f"  🌤 [{county}] 最近氣象測站：{station.get('StationName', '')}（{best_dist:.1f} km）")
 
         weather = _get_field(station, "Weather", "")
         temp    = _get_field(station, "AirTemperature", None)
