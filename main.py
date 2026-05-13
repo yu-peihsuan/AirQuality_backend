@@ -36,7 +36,7 @@ from rag.rag_engine import generate_advice
 
 # ── 新聞爬蟲排程任務 ─────────────────────────────────────────────────────────
 def _scraper_job():
-    """每 6 小時執行一次：爬取新聞、存入 DB、清除過期資料、更新 JSON。"""
+    """每 1 小時執行一次：爬取新聞、存入 DB、清除過期資料、更新 JSON。"""
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 排程爬蟲啟動...")
     try:
         from crawler.news_scraper import run_scraper, init_db as news_init_db, save_to_db, cleanup_old_news
@@ -212,16 +212,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️  知識庫初始化失敗（服務仍可使用，但 RAG 功能受限）：{e}")
 
-    # 3. 啟動新聞爬蟲排程（每 6 小時，啟動時立刻執行一次）
+    # 3. 啟動新聞爬蟲排程（每 1 小時，啟動時立刻執行一次）
     from datetime import datetime as _dt
     scheduler = BackgroundScheduler()
-    scheduler.add_job(_scraper_job, "interval", hours=6, id="news_scraper",
+    scheduler.add_job(_scraper_job, "interval", hours=1, id="news_scraper",
                       next_run_time=_dt.now())
     scheduler.add_job(_forecast_push_job,    "interval", minutes=30, id="forecast_push",   next_run_time=_dt.now())
     scheduler.add_job(_fire_alert_push_job,  "interval", minutes=10, id="fire_alert_push", next_run_time=_dt.now())
     scheduler.add_job(_aqi_alert_push_job,   "interval", minutes=30, id="aqi_alert_push",  next_run_time=_dt.now())
     scheduler.start()
-    print("⏰ 新聞爬蟲排程已啟動（每 6 小時執行一次，啟動時立即執行）")
+    print("⏰ 新聞爬蟲排程已啟動（每 1 小時執行一次，啟動時立即執行）")
 
     yield
 
