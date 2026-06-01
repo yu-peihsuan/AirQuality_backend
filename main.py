@@ -141,6 +141,10 @@ def _fire_alert_push_job():
 # ── AQI 超標推播 ──────────────────────────────────────────────────────────────
 _aqi_alerted: dict[str, int] = {}  # county -> last pushed AQI band (0=normal,1=sensitive,2=all)
 
+# ── AQI 回應快取（MOENV API 不穩定時的備援）────────────────────────────────────
+_aqi_records_cache: list = []       # 最後一次成功取得的全台站點原始資料
+_aqi_cache_ts: datetime | None = None  # 快取建立時間
+
 def _aqi_alert_push_job():
     """每 30 分鐘：AQI ≥ 151 推全體；AQI 101-150 推敏感族群。"""
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ AQI 超標推播排程啟動...")
@@ -246,8 +250,26 @@ def _extract_county_from_location(text: str) -> str | None:
     return None
 
 
+def _extract_wind_from_records(records: list) -> dict:
+    """從站點清單計算全台平均風速風向。"""
+    speeds, directions = [], []
+    for r in records:
+        try:
+            speeds.append(float(r.get("windspeed", 0) or 0))
+            directions.append(float(r.get("winddirection", 0) or 0))
+        except (ValueError, TypeError):
+            pass
+    if speeds:
+        return {
+            "wind_speed": round(sum(speeds) / len(speeds), 1),
+            "wind_direction": round(sum(directions) / len(directions), 1),
+        }
+    return {"wind_speed": 0.0, "wind_direction": 0.0}
+
+
 def _fetch_wind_national_from_aqi() -> dict:
     """從環境部 AQI 資料取得全台平均風速風向（供熱點分析用）。"""
+    global _aqi_records_cache, _aqi_cache_ts
     API_KEY = os.getenv("MOENV_API_KEY", "")
     url = (
         f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
@@ -258,20 +280,15 @@ def _fetch_wind_national_from_aqi() -> dict:
         records = resp.json()
         if not isinstance(records, list):
             records = records.get("records", [])
-        speeds, directions = [], []
-        for r in records:
-            try:
-                speeds.append(float(r.get("windspeed", 0) or 0))
-                directions.append(float(r.get("winddirection", 0) or 0))
-            except (ValueError, TypeError):
-                pass
-        if speeds:
-            return {
-                "wind_speed": round(sum(speeds) / len(speeds), 1),
-                "wind_direction": round(sum(directions) / len(directions), 1),
-            }
+        if records:
+            _aqi_records_cache = records
+            _aqi_cache_ts = datetime.now()
+        return _extract_wind_from_records(records)
     except Exception as e:
         print(f"AQI 全台風速查詢失敗：{e}")
+        if _aqi_records_cache:
+            print("  → 使用 AQI 快取資料計算風速")
+            return _extract_wind_from_records(_aqi_records_cache)
     return {"wind_speed": 0.0, "wind_direction": 0.0}
 
 
@@ -298,8 +315,33 @@ def _geocode_address(address: str) -> tuple | None:
 
 # ── 輔助函式：取得縣市的 AQI 與氣象資料 ────────────────────────────────────────
 
+def _best_record_for_county(records: list, county: str) -> dict:
+    """從站點清單中挑出縣市最高 AQI 測站資料。"""
+    norm = normalize_name(county)
+    county_records = [r for r in records if normalize_name(r.get("county", "")) == norm]
+    if not county_records:
+        return {}
+
+    def safe_aqi(r):
+        try:
+            return int(r.get("aqi", 0))
+        except (ValueError, TypeError):
+            return 0
+
+    best = max(county_records, key=safe_aqi)
+    return {
+        "aqi": safe_aqi(best),
+        "pm25": float(best.get("pm2.5", 0) or 0),
+        "sitename": best.get("sitename", ""),
+        "wind_speed": float(best.get("windspeed", 0) or 0),
+        "wind_direction": float(best.get("winddirection", 0) or 0),
+        "temperature": float(best.get("temperature", 0) or 0),
+    }
+
+
 def _fetch_aqi_for_county(county: str) -> dict:
     """內部呼叫：取得縣市最佳代表測站 AQI 與風速風向"""
+    global _aqi_records_cache, _aqi_cache_ts
     API_KEY = os.getenv("MOENV_API_KEY", "")
     url = (
         f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
@@ -309,33 +351,15 @@ def _fetch_aqi_for_county(county: str) -> dict:
         resp = requests.get(url, timeout=10)
         data = resp.json()
         records = data if isinstance(data, list) else data.get("records", [])
-
-        norm = normalize_name(county)
-        county_records = [
-            r for r in records
-            if normalize_name(r.get("county", "")) == norm
-        ]
-
-        if not county_records:
-            return {}
-
-        def safe_aqi(r):
-            try:
-                return int(r.get("aqi", 0))
-            except (ValueError, TypeError):
-                return 0
-
-        best = max(county_records, key=safe_aqi)
-        return {
-            "aqi": safe_aqi(best),
-            "pm25": float(best.get("pm2.5", 0) or 0),
-            "sitename": best.get("sitename", ""),
-            "wind_speed": float(best.get("windspeed", 0) or 0),
-            "wind_direction": float(best.get("winddirection", 0) or 0),
-            "temperature": float(best.get("temperature", 0) or 0),
-        }
+        if records:
+            _aqi_records_cache = records
+            _aqi_cache_ts = datetime.now()
+        return _best_record_for_county(records, county)
     except Exception as e:
         print(f"AQI 查詢失敗：{e}")
+        if _aqi_records_cache:
+            print(f"  → 使用 AQI 快取資料（{county}）")
+            return _best_record_for_county(_aqi_records_cache, county)
         return {}
 
 
@@ -455,13 +479,18 @@ def read_root():
 
 @app.get("/api/air_quality")
 def get_air_quality(county: str = None):
+    global _aqi_records_cache, _aqi_cache_ts
     API_KEY = os.getenv("MOENV_API_KEY", "REPLACE_WITH_YOUR_API_KEY")
     url = f"https://data.moenv.gov.tw/api/v2/aqx_p_432?api_key={API_KEY}&limit=1000&sort=ImportDate desc&format=JSON"
 
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=15)
         data = response.json()
         records = data if isinstance(data, list) else data.get("records", [])
+
+        if records:
+            _aqi_records_cache = records
+            _aqi_cache_ts = datetime.now()
 
         if county:
             norm_county = normalize_name(county)
@@ -474,6 +503,20 @@ def get_air_quality(county: str = None):
             "records": records
         }
     except Exception as e:
+        print(f"MOENV API 連線失敗：{e}")
+        if _aqi_records_cache:
+            records = _aqi_records_cache
+            if county:
+                norm_county = normalize_name(county)
+                records = [r for r in records if normalize_name(r.get("county", "")) == norm_county]
+            age_min = int((datetime.now() - _aqi_cache_ts).total_seconds() / 60) if _aqi_cache_ts else 0
+            print(f"  → 回傳 {age_min} 分鐘前的快取資料（{len(records)} 筆）")
+            return {
+                "status": "cached",
+                "county": county,
+                "message": f"環境部 API 暫時無法連線，顯示 {age_min} 分鐘前的資料",
+                "records": records
+            }
         return {
             "status": "error",
             "county": county,
