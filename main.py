@@ -1,3 +1,10 @@
+# 必須在所有其他 import 之前載入，確保 rag/llm 模組建立 client 時能讀到 key
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -17,15 +24,6 @@ from db.reports_db import (
     get_recent_confirmed_by_county,
     get_recent_reports_by_region,
 )
-from fcm.token_store import register_token, get_tokens_by_county, get_all_tokens
-from fcm.fcm_sender import send_multicast
-
-# 載入 .env 環境變數（本機開發用，Docker 透過 docker-compose 傳入）
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass  # production 環境不一定有 python-dotenv
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -36,7 +34,7 @@ from rag.rag_engine import generate_advice
 
 # ── 新聞爬蟲排程任務 ─────────────────────────────────────────────────────────
 def _scraper_job():
-    """每 6 小時執行一次：爬取新聞、存入 DB、清除過期資料、更新 JSON。"""
+    """每 1 小時執行一次：爬取新聞、存入 DB、清除過期資料、更新 JSON。"""
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 排程爬蟲啟動...")
     try:
         from crawler.news_scraper import run_scraper, init_db as news_init_db, save_to_db, cleanup_old_news
@@ -86,8 +84,8 @@ def _forecast_push_job():
             if not tokens:
                 _forecast_pushed.add(key)
                 continue
-            title = f"⚠️ {county}明日空品預警"
-            body  = rec["title"] + ("　" + rec["summary"] if rec["summary"] else "")
+            title = f"空品預報｜{county}"
+            body  = rec["summary"] or rec["title"]
             try:
                 send_multicast(tokens, title=title, body=body, data={"type": "forecast", "county": county})
                 _forecast_pushed.add(key)
@@ -101,6 +99,103 @@ def _forecast_push_job():
             print("  ✅ 無新預警需推播（已全部推送過）")
     except Exception as e:
         print(f"⚠️  預報推播排程失敗：{e}")
+
+
+# ── 火災警示推播 ──────────────────────────────────────────────────────────────
+_fire_pushed: set[str] = set()  # 已推播過的 alert ID
+
+def _fire_alert_push_job():
+    """每 10 分鐘：有新重大火災警示就推播給受影響縣市。"""
+    global _fire_pushed
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 火災警示推播排程啟動...")
+    try:
+        from crawler.fire_alert_scraper import fetch_fire_alerts
+        alerts = fetch_fire_alerts(hours=2)
+        sent = 0
+        for alert in alerts:
+            aid = alert.get("id", "")
+            if not aid or aid in _fire_pushed:
+                continue
+            county = alert.get("county", "")
+            tokens = get_tokens_by_county(county)
+            if not tokens:
+                _fire_pushed.add(aid)
+                continue
+            title = f"🔥 火災警示｜{county}"
+            body  = alert.get("area_desc", "") or alert.get("description", "重大火災")
+            try:
+                send_multicast(tokens, title=title, body=body.strip(), data={"type": "fire", "county": county})
+                _fire_pushed.add(aid)
+                sent += 1
+                print(f"  📲 火災推播：{county} | {len(tokens)} 台裝置")
+            except Exception as e:
+                print(f"  ⚠️ 火災推播失敗：{e}")
+        if sent:
+            print(f"  ✅ 火災警示推播完成，共 {sent} 筆")
+    except Exception as e:
+        print(f"⚠️  火災推播排程失敗：{e}")
+
+
+# ── AQI 超標推播 ──────────────────────────────────────────────────────────────
+_aqi_alerted: dict[str, int] = {}  # county -> last pushed AQI band (0=normal,1=sensitive,2=all)
+
+# ── AQI 回應快取（MOENV API 不穩定時的備援）────────────────────────────────────
+_aqi_records_cache: list = []       # 最後一次成功取得的全台站點原始資料
+_aqi_cache_ts: datetime | None = None  # 快取建立時間
+
+def _aqi_alert_push_job():
+    """每 30 分鐘：AQI ≥ 151 推全體；AQI 101-150 推敏感族群。"""
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ AQI 超標推播排程啟動...")
+    try:
+        API_KEY = os.getenv("MOENV_API_KEY", "")
+        url = (f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
+               f"?api_key={API_KEY}&limit=1000&sort=ImportDate desc&format=JSON")
+        resp = requests.get(url, timeout=10)
+        records = resp.json()
+        if not isinstance(records, list):
+            records = records.get("records", [])
+
+        # 以縣市分組取最高 AQI
+        county_max: dict[str, int] = {}
+        for r in records:
+            county = r.get("county", "")
+            try:
+                aqi = int(r.get("aqi", 0))
+            except (ValueError, TypeError):
+                continue
+            if aqi > county_max.get(county, 0):
+                county_max[county] = aqi
+
+        for county, aqi in county_max.items():
+            prev_band = _aqi_alerted.get(county, 0)
+            if aqi >= 151:
+                band = 2
+                if band <= prev_band:
+                    continue
+                tokens = get_tokens_by_county(county)
+                title = f"🔴 空氣危害｜{county}"
+                body  = f"AQI {aqi}，請盡量待室內"
+            elif aqi >= 101:
+                band = 1
+                if band <= prev_band:
+                    continue
+                from fcm.token_store import get_sensitive_tokens_by_county
+                tokens = get_sensitive_tokens_by_county(county)
+                title = f"⚠️ 空氣警示｜{county}"
+                body  = f"AQI {aqi}，敏感族群注意防護"
+            else:
+                _aqi_alerted[county] = 0
+                continue
+            if not tokens:
+                continue
+            try:
+                send_multicast(tokens, title=title, body=body, data={"type": "aqi", "county": county})
+                _aqi_alerted[county] = band
+                print(f"  📲 AQI 推播：{county} AQI {aqi} | {len(tokens)} 台裝置")
+            except Exception as e:
+                print(f"  ⚠️ AQI 推播失敗：{county} | {e}")
+    except Exception as e:
+        print(f"⚠️  AQI 推播排程失敗：{e}")
 
 
 # ── Lifespan：啟動時初始化 DB 與知識庫 ───────────────────────────────────────
@@ -119,15 +214,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️  知識庫初始化失敗（服務仍可使用，但 RAG 功能受限）：{e}")
 
-    # 3. 啟動新聞爬蟲排程（每 6 小時，啟動時立刻執行一次）
+    # 3. 啟動新聞爬蟲排程（每 1 小時，啟動時立刻執行一次）
     from datetime import datetime as _dt
     scheduler = BackgroundScheduler()
-    scheduler.add_job(_scraper_job, "interval", hours=6, id="news_scraper",
+    scheduler.add_job(_scraper_job, "interval", hours=1, id="news_scraper",
                       next_run_time=_dt.now())
-    scheduler.add_job(_forecast_push_job, "interval", minutes=30, id="forecast_push",
-                      next_run_time=_dt.now())
+    scheduler.add_job(_forecast_push_job,    "interval", minutes=30, id="forecast_push",   next_run_time=_dt.now())
+    scheduler.add_job(_fire_alert_push_job,  "interval", minutes=10, id="fire_alert_push", next_run_time=_dt.now())
+    scheduler.add_job(_aqi_alert_push_job,   "interval", minutes=30, id="aqi_alert_push",  next_run_time=_dt.now())
     scheduler.start()
-    print("⏰ 新聞爬蟲排程已啟動（每 6 小時執行一次，啟動時立即執行）")
+    print("⏰ 新聞爬蟲排程已啟動（每 1 小時執行一次，啟動時立即執行）")
 
     yield
 
@@ -152,8 +248,26 @@ def _extract_county_from_location(text: str) -> str | None:
     return None
 
 
+def _extract_wind_from_records(records: list) -> dict:
+    """從站點清單計算全台平均風速風向。"""
+    speeds, directions = [], []
+    for r in records:
+        try:
+            speeds.append(float(r.get("windspeed", 0) or 0))
+            directions.append(float(r.get("winddirection", 0) or 0))
+        except (ValueError, TypeError):
+            pass
+    if speeds:
+        return {
+            "wind_speed": round(sum(speeds) / len(speeds), 1),
+            "wind_direction": round(sum(directions) / len(directions), 1),
+        }
+    return {"wind_speed": 0.0, "wind_direction": 0.0}
+
+
 def _fetch_wind_national_from_aqi() -> dict:
     """從環境部 AQI 資料取得全台平均風速風向（供熱點分析用）。"""
+    global _aqi_records_cache, _aqi_cache_ts
     API_KEY = os.getenv("MOENV_API_KEY", "")
     url = (
         f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
@@ -164,20 +278,15 @@ def _fetch_wind_national_from_aqi() -> dict:
         records = resp.json()
         if not isinstance(records, list):
             records = records.get("records", [])
-        speeds, directions = [], []
-        for r in records:
-            try:
-                speeds.append(float(r.get("windspeed", 0) or 0))
-                directions.append(float(r.get("winddirection", 0) or 0))
-            except (ValueError, TypeError):
-                pass
-        if speeds:
-            return {
-                "wind_speed": round(sum(speeds) / len(speeds), 1),
-                "wind_direction": round(sum(directions) / len(directions), 1),
-            }
+        if records:
+            _aqi_records_cache = records
+            _aqi_cache_ts = datetime.now()
+        return _extract_wind_from_records(records)
     except Exception as e:
         print(f"AQI 全台風速查詢失敗：{e}")
+        if _aqi_records_cache:
+            print("  → 使用 AQI 快取資料計算風速")
+            return _extract_wind_from_records(_aqi_records_cache)
     return {"wind_speed": 0.0, "wind_direction": 0.0}
 
 
@@ -204,8 +313,33 @@ def _geocode_address(address: str) -> tuple | None:
 
 # ── 輔助函式：取得縣市的 AQI 與氣象資料 ────────────────────────────────────────
 
+def _best_record_for_county(records: list, county: str) -> dict:
+    """從站點清單中挑出縣市最高 AQI 測站資料。"""
+    norm = normalize_name(county)
+    county_records = [r for r in records if normalize_name(r.get("county", "")) == norm]
+    if not county_records:
+        return {}
+
+    def safe_aqi(r):
+        try:
+            return int(r.get("aqi", 0))
+        except (ValueError, TypeError):
+            return 0
+
+    best = max(county_records, key=safe_aqi)
+    return {
+        "aqi": safe_aqi(best),
+        "pm25": float(best.get("pm2.5", 0) or 0),
+        "sitename": best.get("sitename", ""),
+        "wind_speed": float(best.get("windspeed", 0) or 0),
+        "wind_direction": float(best.get("winddirection", 0) or 0),
+        "temperature": float(best.get("temperature", 0) or 0),
+    }
+
+
 def _fetch_aqi_for_county(county: str) -> dict:
     """內部呼叫：取得縣市最佳代表測站 AQI 與風速風向"""
+    global _aqi_records_cache, _aqi_cache_ts
     API_KEY = os.getenv("MOENV_API_KEY", "")
     url = (
         f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
@@ -215,33 +349,15 @@ def _fetch_aqi_for_county(county: str) -> dict:
         resp = requests.get(url, timeout=10)
         data = resp.json()
         records = data if isinstance(data, list) else data.get("records", [])
-
-        norm = normalize_name(county)
-        county_records = [
-            r for r in records
-            if normalize_name(r.get("county", "")) == norm
-        ]
-
-        if not county_records:
-            return {}
-
-        def safe_aqi(r):
-            try:
-                return int(r.get("aqi", 0))
-            except (ValueError, TypeError):
-                return 0
-
-        best = max(county_records, key=safe_aqi)
-        return {
-            "aqi": safe_aqi(best),
-            "pm25": float(best.get("pm2.5", 0) or 0),
-            "sitename": best.get("sitename", ""),
-            "wind_speed": float(best.get("windspeed", 0) or 0),
-            "wind_direction": float(best.get("winddirection", 0) or 0),
-            "temperature": float(best.get("temperature", 0) or 0),
-        }
+        if records:
+            _aqi_records_cache = records
+            _aqi_cache_ts = datetime.now()
+        return _best_record_for_county(records, county)
     except Exception as e:
         print(f"AQI 查詢失敗：{e}")
+        if _aqi_records_cache:
+            print(f"  → 使用 AQI 快取資料（{county}）")
+            return _best_record_for_county(_aqi_records_cache, county)
         return {}
 
 
@@ -361,13 +477,18 @@ def read_root():
 
 @app.get("/api/air_quality")
 def get_air_quality(county: str = None):
+    global _aqi_records_cache, _aqi_cache_ts
     API_KEY = os.getenv("MOENV_API_KEY", "REPLACE_WITH_YOUR_API_KEY")
     url = f"https://data.moenv.gov.tw/api/v2/aqx_p_432?api_key={API_KEY}&limit=1000&sort=ImportDate desc&format=JSON"
 
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=15)
         data = response.json()
         records = data if isinstance(data, list) else data.get("records", [])
+
+        if records:
+            _aqi_records_cache = records
+            _aqi_cache_ts = datetime.now()
 
         if county:
             norm_county = normalize_name(county)
@@ -380,6 +501,20 @@ def get_air_quality(county: str = None):
             "records": records
         }
     except Exception as e:
+        print(f"MOENV API 連線失敗：{e}")
+        if _aqi_records_cache:
+            records = _aqi_records_cache
+            if county:
+                norm_county = normalize_name(county)
+                records = [r for r in records if normalize_name(r.get("county", "")) == norm_county]
+            age_min = int((datetime.now() - _aqi_cache_ts).total_seconds() / 60) if _aqi_cache_ts else 0
+            print(f"  → 回傳 {age_min} 分鐘前的快取資料（{len(records)} 筆）")
+            return {
+                "status": "cached",
+                "county": county,
+                "message": f"環境部 API 暫時無法連線，顯示 {age_min} 分鐘前的資料",
+                "records": records
+            }
         return {
             "status": "error",
             "county": county,
@@ -464,13 +599,6 @@ def submit_report(req: ReportRequest):
             event_type = (se.get("event_type") or "general_air_quality") if se else "general_air_quality"
             type_label = _TYPE_ZH.get(event_type, "污染事件")
 
-            if wind_speed < 1.0:
-                body = (f"{req.location} 發生{type_label}，目前近乎無風，"
-                        f"污染物擴散條件差，周邊地區請注意空氣品質。")
-            else:
-                body = (f"{req.location} 發生{type_label}，"
-                        f"下風處地區請注意空氣品質，建議減少戶外活動。")
-
             tokens = list({
                 t for c in affected
                 for t in get_tokens_by_county(normalize_name(c))
@@ -478,11 +606,23 @@ def submit_report(req: ReportRequest):
             if tokens:
                 send_multicast(
                     tokens,
-                    title=f"⚠️ 空氣污染警報：{type_label}",
-                    body=body,
+                    title=f"[民報] {type_label}",
+                    body=req.description[:50] if req.description else type_label,
                     data={"type": event_type},
                 )
                 print(f"✅ FCM 推播：{type_label} @ {req.location}，推送 {len(tokens)} 台裝置")
+
+            # 附近 5km 裝置也推播（精準通知）
+            from fcm.token_store import get_tokens_near
+            nearby_tokens = [t for t in get_tokens_near(lat, lng, radius_km=5.0) if t not in tokens]
+            if nearby_tokens:
+                send_multicast(
+                    nearby_tokens,
+                    title=f"[民眾回報] 📍 附近{type_label}",
+                    body=req.description[:50] if req.description else type_label,
+                    data={"type": event_type},
+                )
+                print(f"✅ 附近裝置推播：{len(nearby_tokens)} 台")
         except Exception as e:
             print(f"⚠️ FCM 推播失敗：{e}")
 
@@ -580,7 +720,7 @@ def get_rag_advice(req: RagAdviceRequest):
 
         # 3. 取得即時天氣（降雨、天氣描述）
         from crawler.weather_fetcher import fetch_weather_for_county, fetch_weather_forecast_for_county
-        weather_data     = fetch_weather_for_county(county)
+        weather_data     = fetch_weather_for_county(county, lat=req.latitude, lng=req.longitude)
         weather_desc     = weather_data.get("description", "")
         is_raining       = weather_data.get("is_raining", False)
         weather_forecast = fetch_weather_forecast_for_county(county)
@@ -753,6 +893,24 @@ def get_forecast(county: str = None):
         return {"status": "error", "region": county, "message": str(e), "records": []}
 
 
+@app.get("/api/weather")
+def get_weather(county: str = None, lat: float = None, lng: float = None):
+    """回傳即時天氣，需提供 lat/lng 以找最近測站。"""
+    try:
+        from crawler.weather_fetcher import fetch_weather_for_county
+        data = fetch_weather_for_county(county or "", lat=lat, lng=lng)
+        return {
+            "status":      "success",
+            "county":      county,
+            "is_raining":  data.get("is_raining", False),
+            "weather":     data.get("weather", ""),
+            "temp":        data.get("temp"),
+            "description": data.get("description", ""),
+        }
+    except Exception as e:
+        return {"status": "error", "county": county, "message": str(e), "is_raining": False}
+
+
 @app.get("/api/forecast/raw")
 def get_forecast_raw(county: str = None):
     """回傳 AQF_P_01 今日完整原始資料，供查閱所有欄位內容。"""
@@ -768,15 +926,18 @@ def get_forecast_raw(county: str = None):
 # ── FCM 推播 Endpoints ────────────────────────────────────────────────────────
 
 class TokenRegisterRequest(BaseModel):
-    token: str
-    county: str = ""
+    token:      str
+    county:     str   = ""
+    lat:        float = None
+    lng:        float = None
+    conditions: str   = ""  # 健康狀況，逗號分隔，如「氣喘,心血管疾病」
 
 
 @app.post("/api/fcm/register")
 def register_fcm_token(req: TokenRegisterRequest):
-    """App 啟動時上傳裝置 FCM Token 與所在縣市。"""
+    """App 啟動時上傳裝置 FCM Token、縣市、座標、健康狀況。"""
     try:
-        register_token(req.token, req.county)
+        register_token(req.token, req.county, req.lat, req.lng, req.conditions)
         return {"status": "success", "message": "Token 已註冊"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
