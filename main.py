@@ -1,3 +1,10 @@
+# 必須在所有其他 import 之前載入，確保 rag/llm 模組建立 client 時能讀到 key
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -17,15 +24,6 @@ from db.reports_db import (
     get_recent_confirmed_by_county,
     get_recent_reports_by_region,
 )
-from fcm.token_store import register_token, get_tokens_by_county, get_all_tokens
-from fcm.fcm_sender import send_multicast
-
-# 載入 .env 環境變數（本機開發用，Docker 透過 docker-compose 傳入）
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass  # production 環境不一定有 python-dotenv
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
