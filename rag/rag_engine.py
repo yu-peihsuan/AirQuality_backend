@@ -28,6 +28,7 @@ _ADVICE_PROMPT = """# Role: 貼心且專業的生活顧問
 
 # 用戶健康檔案
 - 年齡層：{age_group}　孕婦：{is_pregnant}　氣喘：{has_asthma}　心血管疾病：{has_cardiovascular}　過敏：{has_allergy}
+- 其他說明：{other_notes}
 
 # 相關健康指引（參考資料）
 {retrieved_knowledge}
@@ -83,12 +84,14 @@ def _describe_user_profile(profile: dict) -> dict:
         "adult": "成人",
         "elderly": "老年人（65歲以上）",
     }
+    other = profile.get("other_notes") or ""
     return {
         "age_group": age_map.get(profile.get("age_group", "adult"), "成人"),
         "is_pregnant": "是" if profile.get("is_pregnant") else "否",
         "has_asthma": "是" if profile.get("has_asthma") else "否",
         "has_cardiovascular": "是" if profile.get("has_cardiovascular") else "否",
         "has_allergy": "是" if profile.get("has_allergy") else "否",
+        "other_notes": other if other else "無",
     }
 
 

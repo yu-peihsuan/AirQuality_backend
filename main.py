@@ -457,6 +457,7 @@ class UserProfile(BaseModel):
     has_asthma: bool = False
     has_cardiovascular: bool = False
     has_allergy: bool = False
+    other_notes: str | None = None
 
 
 class RagAdviceRequest(BaseModel):
