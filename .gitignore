@@ -31,3 +31,6 @@ serviceAccountKey.json
 
 # FCM Token 儲存檔
 fcm_tokens.json
+
+# 分析用歷史資料（大型 CSV，不進 Git）
+analysis/data/
