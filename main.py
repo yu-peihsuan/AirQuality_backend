@@ -6,7 +6,7 @@ except ImportError:
     pass
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import requests
 import os
@@ -23,6 +23,10 @@ from db.reports_db import (
     get_recent_reports, get_all_reports,
     get_recent_confirmed_by_county,
     get_recent_reports_by_region,
+)
+from db.users_db import (
+    init_db as init_users_db,
+    upsert_user, get_user_profile, upsert_user_profile,
 )
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -206,6 +210,12 @@ async def lifespan(app: FastAPI):
         init_db()
     except Exception as e:
         print(f"⚠️  DB 初始化失敗：{e}")
+
+    # 1b. 初始化使用者 DB
+    try:
+        init_users_db()
+    except Exception as e:
+        print(f"⚠️  users DB 初始化失敗：{e}")
 
     # 2. 初始化 RAG 知識庫
     print("🚀 FastAPI 啟動中，正在初始化健康規則知識庫...")
@@ -469,11 +479,59 @@ class RagAdviceRequest(BaseModel):
     user_profile: UserProfile = UserProfile()
 
 
+# ── Pydantic Models for User Auth ────────────────────────────────────────────
+
+class EmailLoginRequest(BaseModel):
+    email: str
+
+class UserProfileRequest(BaseModel):
+    age_group:     str  = "18-64歲"
+    conditions:    str  = ""
+    other_notes:   str  = ""
+    fav_locations: list = []
+
+
 # ── API Endpoints ────────────────────────────────────────────────────────────
 
 @app.get("/")
 def read_root():
     return {"message": "空氣品質後端伺服器已在 Docker 中成功啟動！"}
+
+
+# ── 使用者驗證與 Profile ──────────────────────────────────────────────────────
+
+@app.post("/api/auth/login")
+def auth_login(req: EmailLoginRequest):
+    """以 email 登入或註冊，回傳使用者資料與已儲存的 profile（若有）。"""
+    email = req.email.strip().lower()
+    if not email or "@" not in email:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="無效的 email 格式")
+    user    = upsert_user(email)
+    profile = get_user_profile(email)
+    return {"status": "ok", "user": user, "profile": profile}
+
+
+@app.get("/api/users/{email}/profile")
+def get_profile(email: str):
+    """取得指定使用者的健康檔案與常用地點。"""
+    profile = get_user_profile(email.lower())
+    if not profile:
+        return {"status": "ok", "profile": None}
+    return {"status": "ok", "profile": profile}
+
+
+@app.put("/api/users/{email}/profile")
+def update_profile(email: str, req: UserProfileRequest):
+    """儲存使用者健康檔案與常用地點（含換裝置時同步）。"""
+    profile = upsert_user_profile(
+        email        = email.lower(),
+        age_group    = req.age_group,
+        conditions   = req.conditions,
+        other_notes  = req.other_notes,
+        fav_locations= req.fav_locations,
+    )
+    return {"status": "ok", "profile": profile}
 
 
 @app.get("/api/air_quality")
