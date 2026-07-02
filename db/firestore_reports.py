@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 _KEY_PATH = os.path.join(
     os.path.dirname(__file__), "..",
-    "airquality-4d1b6-firebase-adminsdk-fbsvc-176142d1b9.json"
+    "serviceAccountKey.json"
 )
 
 
