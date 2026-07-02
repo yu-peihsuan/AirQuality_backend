@@ -11,7 +11,7 @@ def _init_firebase():
     try:
         firebase_admin.get_app()
     except ValueError:
-        key_path = os.path.join(os.path.dirname(__file__), "..", "airquality-4d1b6-firebase-adminsdk-fbsvc-176142d1b9.json")
+        key_path = os.path.join(os.path.dirname(__file__), "..", "serviceAccountKey.json")
         if not os.path.exists(key_path):
             raise FileNotFoundError(f"Firebase 金鑰檔案不存在：{key_path}")
         cred = credentials.Certificate(key_path)
