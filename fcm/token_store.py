@@ -82,3 +82,57 @@ def get_tokens_near(lat: float, lng: float, radius_km: float = 5.0) -> list[str]
 def get_all_tokens() -> list[str]:
     """取得所有裝置 token。"""
     return [t["token"] for t in _load()]
+
+
+def get_token_county(token: str) -> str | None:
+    """取得指定裝置目前註冊的縣市（尚未註冊過或無縣市則回傳 None）。"""
+    for t in _load():
+        if t["token"] == token:
+            return t.get("county") or None
+    return None
+
+
+def set_daily_preference(token: str, enabled: bool, hour: int | None = None, minute: int | None = None):
+    """設定或取消一筆裝置的每日空氣品質摘要通知時間。"""
+    tokens = _load()
+    for t in tokens:
+        if t["token"] == token:
+            t["daily_enabled"] = enabled
+            if enabled:
+                t["daily_hour"]   = hour
+                t["daily_minute"] = minute
+            _save(tokens)
+            return
+    tokens.append({
+        "token":         token,
+        "county":        "",
+        "lat":           None,
+        "lng":           None,
+        "conditions":    "",
+        "daily_enabled": enabled,
+        "daily_hour":    hour,
+        "daily_minute":  minute,
+    })
+    _save(tokens)
+
+
+def get_due_daily_tokens(hour: int, minute: int, today: str) -> list[dict]:
+    """取得指定時:分要收每日通知、且今天還沒發過、且已知所在縣市的裝置。"""
+    return [
+        t for t in _load()
+        if t.get("daily_enabled")
+        and t.get("daily_hour") == hour
+        and t.get("daily_minute") == minute
+        and t.get("daily_last_sent") != today
+        and t.get("county")
+    ]
+
+
+def mark_daily_sent(token: str, today: str):
+    """標記一筆裝置今天已經收過每日摘要通知，避免重複發送。"""
+    tokens = _load()
+    for t in tokens:
+        if t["token"] == token:
+            t["daily_last_sent"] = today
+            _save(tokens)
+            return
