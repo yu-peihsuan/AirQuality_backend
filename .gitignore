@@ -22,6 +22,9 @@ crawler/user_reports_filtered.json
 crawler/news.db
 crawler/user_reports.db
 
+# 使用者帳號／健康資料（已移除登入功能，不應再產生此檔案）
+db/users.db
+
 # ChromaDB 向量資料庫
 rag/chroma_db/
 
