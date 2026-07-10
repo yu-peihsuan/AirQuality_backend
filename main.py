@@ -15,7 +15,10 @@ import json
 from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from rag.llm_structurer import analyze_citizen_report
-from fcm.token_store import register_token, get_tokens_by_county, get_all_tokens
+from fcm.token_store import (
+    register_token, get_tokens_by_county, get_all_tokens,
+    set_daily_preference, get_due_daily_tokens, mark_daily_sent, get_token_county,
+)
 from fcm.fcm_sender import send_multicast
 from gis.hotspot_analyzer import analyze_hotspots, check_downwind, get_affected_counties, COUNTY_CENTROIDS
 from db.reports_db import (
@@ -198,6 +201,60 @@ def _aqi_alert_push_job():
         print(f"⚠️  AQI 推播排程失敗：{e}")
 
 
+# ── 每日空氣品質摘要推播 ──────────────────────────────────────────────────────
+
+def _fetch_aqi_county_best() -> dict[str, dict]:
+    """抓取即時 AQI，回傳每個縣市 AQI 最高的站點資料 {county: {aqi, status}}。"""
+    API_KEY = os.getenv("MOENV_API_KEY", "")
+    url = (f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
+           f"?api_key={API_KEY}&limit=1000&sort=ImportDate desc&format=JSON")
+    resp = requests.get(url, timeout=10)
+    records = resp.json()
+    if not isinstance(records, list):
+        records = records.get("records", [])
+
+    county_best: dict[str, dict] = {}
+    for r in records:
+        county = r.get("county", "")
+        try:
+            aqi = int(r.get("aqi", 0))
+        except (ValueError, TypeError):
+            continue
+        if county and aqi > county_best.get(county, {}).get("aqi", -1):
+            county_best[county] = {"aqi": aqi, "status": r.get("status", "")}
+    return county_best
+
+
+def _daily_summary_push_job():
+    """每分鐘檢查一次：有裝置設定的每日通知時間到了，就推播當地 AQI 摘要（每裝置每天最多推一次）。"""
+    now = datetime.now()
+    today = now.strftime("%Y-%m-%d")
+    due = get_due_daily_tokens(now.hour, now.minute, today)
+    if not due:
+        return
+
+    print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 每日摘要推播：{len(due)} 台裝置到時間")
+    try:
+        county_best = _fetch_aqi_county_best()
+    except Exception as e:
+        print(f"  ⚠️ 每日摘要取得 AQI 失敗：{e}")
+        return
+
+    for t in due:
+        info = county_best.get(t["county"])
+        if not info:
+            continue
+        title = f"🌤 每日空氣品質摘要｜{t['county']}"
+        body  = f"AQI {info['aqi']}（{info['status']}）"
+        try:
+            send_multicast([t["token"]], title=title, body=body,
+                            data={"type": "daily_summary", "county": t["county"]})
+            mark_daily_sent(t["token"], today)
+            print(f"  📲 每日摘要推播：{t['county']} AQI {info['aqi']}")
+        except Exception as e:
+            print(f"  ⚠️ 每日摘要推播失敗：{t['county']} | {e}")
+
+
 # ── Lifespan：啟動時初始化 DB 與知識庫 ───────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -222,6 +279,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(_forecast_push_job,    "interval", minutes=30, id="forecast_push",   next_run_time=_dt.now())
     scheduler.add_job(_fire_alert_push_job,  "interval", minutes=10, id="fire_alert_push", next_run_time=_dt.now())
     scheduler.add_job(_aqi_alert_push_job,   "interval", minutes=30, id="aqi_alert_push",  next_run_time=_dt.now())
+    scheduler.add_job(_daily_summary_push_job, "interval", minutes=1, id="daily_summary_push")
     scheduler.start()
     print("⏰ 新聞爬蟲排程已啟動（每 1 小時執行一次，啟動時立即執行）")
 
@@ -940,6 +998,46 @@ def register_fcm_token(req: TokenRegisterRequest):
     try:
         register_token(req.token, req.county, req.lat, req.lng, req.conditions)
         return {"status": "success", "message": "Token 已註冊"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+class DailyNotificationRequest(BaseModel):
+    token:  str
+    enabled: bool
+    hour:   int | None = None    # 0-23，enabled=True 時必填
+    minute: int | None = None    # 0-59，enabled=True 時必填
+
+
+@app.put("/api/fcm/daily-notification")
+def set_daily_notification(req: DailyNotificationRequest):
+    """設定或取消裝置的每日空氣品質摘要通知時間。"""
+    try:
+        set_daily_preference(req.token, req.enabled, req.hour, req.minute)
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+class DailyNotificationTestRequest(BaseModel):
+    token: str
+
+
+@app.post("/api/fcm/daily-notification/test")
+def test_daily_notification(req: DailyNotificationTestRequest):
+    """測試用：立即用該裝置目前註冊的縣市推播一次每日摘要，不等排程時間、不佔用當天的正式額度。"""
+    county = get_token_county(req.token)
+    if not county:
+        return {"status": "error", "message": "找不到這個裝置的縣市，請確認 App 已定位並上傳過 Token"}
+    try:
+        info = _fetch_aqi_county_best().get(county)
+        if not info:
+            return {"status": "error", "message": f"目前查不到 {county} 的即時 AQI 資料"}
+        title = f"🌤 每日空氣品質摘要｜{county}"
+        body  = f"AQI {info['aqi']}（{info['status']}）"
+        send_multicast([req.token], title=title, body=body,
+                        data={"type": "daily_summary_test", "county": county})
+        return {"status": "success", "county": county, "aqi": info["aqi"]}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 

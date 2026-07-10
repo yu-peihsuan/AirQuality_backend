@@ -4,7 +4,11 @@
     "county": "臺北市",
     "conditions": "過敏,高血壓,懷孕中",
     "lat": 25.0360517,
-    "lng": 121.513665
+    "lng": 121.513665,
+    "daily_enabled": true,
+    "daily_hour": 8,
+    "daily_minute": 0,
+    "daily_last_sent": "2026-07-09"
   },
   {
     "token": "eeqFh2jSTBOPucawDnTpgB:APA91bFeZ-IkasJmQ21DbtL9YUtZpKtG5_IVogSS-k1AgvdBhciQswHkrbt0rU5XnKgVQVb4Qblrdz27cBw-HN7ZBRUZZksa44DcPrx_eqI7qmpFc7a8wFs",
@@ -12,5 +16,12 @@
     "conditions": "氣喘",
     "lat": 25.0360517,
     "lng": 121.513665
+  },
+  {
+    "token": "f6SQHT-zQ8a7ERAfgnLOAg:APA91bH0CXhwV41GUOky0o2uJpcX2ACSdOR6B2Ie75YzMq0jtJPgkTY8eQNEe5-dD4Ixl58ZeajXskT2h0VIiG62U1zVylPkdU56To7imU8VBZAy7CwP3gA",
+    "county": "臺北市",
+    "lat": 25.0360517,
+    "lng": 121.513665,
+    "conditions": ""
   }
 ]
