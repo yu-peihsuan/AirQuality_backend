@@ -434,14 +434,20 @@ def _fetch_user_report_events(county: str) -> str:
             return "無"
 
         events = []
+        seen: set[tuple[str, str]] = set()
         for r in recent:
             ev_type = _TYPE_ZH.get(r.get("event_type", ""), r.get("category", "污染"))
             severity = r.get("severity", "")
             desc = r.get("summary", "")[:30]
+            # 同類型＋同內容的回報只取一筆，避免重複事件灌爆事件脈絡
+            key = (ev_type, desc)
+            if key in seen:
+                continue
+            seen.add(key)
             label = f"民眾回報{ev_type}" + (f"（{severity}）" if severity else "") + f"：{desc}"
             events.append(label)
 
-        return "、".join(events[:2])
+        return "、".join(events[:2]) if events else "無"
     except Exception as e:
         print(f"用戶回報事件查詢失敗：{e}")
         return "無"
@@ -504,6 +510,8 @@ def _fetch_recent_events_for_region(region: str) -> str:
     except Exception as e:
         print(f"新聞事件查詢失敗：{e}")
 
+    # 去除完全相同的事件描述後再組合
+    events = list(dict.fromkeys(events))
     return "、".join(events[:3]) if events else "無"
 
 
@@ -1123,26 +1131,3 @@ def test_auto_push():
         return {"status": "success", "pushed": sent_list}
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
-
-# ── GIS 熱點分析 Endpoint ─────────────────────────────────────────────────────
-
-@app.get("/api/hotspots")
-def get_hotspots(min_reports: int = 2, radius_km: float = 1.5, top_n: int = 10):
-    """
-    分析民眾回報的空間熱點。
-    回傳密度最高的前 N 個污染熱點座標與強度。
-    """
-    try:
-        hotspots = analyze_hotspots(
-            min_reports=min_reports,
-            cluster_radius_km=radius_km,
-            top_n=top_n,
-        )
-        return {
-            "status": "success",
-            "count": len(hotspots),
-            "hotspots": hotspots,
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e), "hotspots": []}

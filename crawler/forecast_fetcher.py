@@ -96,16 +96,36 @@ def fetch_latest_forecast(county: str = None) -> list[dict]:
         return []
 
 
-def _parse_trend(content: str, area: str = "") -> str:
-    """從預報文字中判斷趨勢，回傳簡短描述。"""
-    if not content:
-        return ""
-    worsening = ["轉差", "惡化", "升高", "增加", "不良", "偏差", "加重", "累積", "偏高", "污染", "汙染"]
-    improving = ["改善", "好轉", "降低", "減少", "轉好", "趨緩", "消散", "減輕", "偏低", "趨好"]
-    if any(k in content for k in worsening):
-        return "空氣品質預計將變差"
-    if any(k in content for k in improving):
-        return "空氣品質預計將改善"
+def _parse_trend(content: str, area: str = "", forecast_aqi: int = 0) -> str:
+    """
+    判斷該空品區的預報趨勢，回傳簡短描述。
+    只掃「該空品區自己的句子」做關鍵字判斷（整篇全台預報文幾乎必含「污染」，
+    直接全文比對會讓所有縣市都變成「將變差」）；判斷不出或與預報等級矛盾時，
+    改以該區預報 AQI 等級描述，確保與標題一致。
+    """
+    import re
+    trend = ""
+    if content and area:
+        area_short = area.replace("空品區", "").replace("空氣品質區", "")
+        sentences = [s.strip() for s in re.split(r"[；。\n]", content) if s.strip()]
+        scoped = "；".join(s for s in sentences if area_short and area_short in s)
+        if scoped:
+            worsening = ["轉差", "惡化", "升高", "增加", "不良", "偏差", "加重", "累積", "偏高", "污染", "汙染"]
+            improving = ["改善", "好轉", "降低", "減少", "轉好", "趨緩", "消散", "減輕", "偏低", "趨好"]
+            if any(k in scoped for k in worsening):
+                trend = "worse"
+            elif any(k in scoped for k in improving):
+                trend = "better"
+
+    level = _aqi_rank(forecast_aqi) if forecast_aqi else 0
+    if trend == "worse" and level >= 3:
+        return "空氣品質預計轉差，請注意防護"
+    if trend == "worse" and level == 2:
+        return "空氣品質可能轉差，敏感族群請留意"
+    if trend == "better":
+        return "空氣品質預計改善"
+    if forecast_aqi:
+        return f"空氣品質預計為{_aqi_to_status(forecast_aqi)}等級"
     return "空氣品質預計維持穩定"
 
 
@@ -148,7 +168,7 @@ def fetch_today_forecasts(county: str = None) -> list[dict]:
             "source":       "空品預報",
             "region":       location,
             "title":        f"{location} 空品預報：{status}",
-            "summary":      _parse_trend(r.get("content", "")),
+            "summary":      _parse_trend(r.get("content", ""), area, forecast_aqi),
             "url":          "",
             "published_at": publishtime,
             "timestamp":    "",
