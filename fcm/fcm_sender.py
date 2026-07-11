@@ -12,10 +12,13 @@ def _init_firebase():
         firebase_admin.get_app()
     except ValueError:
         key_path = os.path.join(os.path.dirname(__file__), "..", "serviceAccountKey.json")
-        if not os.path.exists(key_path):
-            raise FileNotFoundError(f"Firebase 金鑰檔案不存在：{key_path}")
-        cred = credentials.Certificate(key_path)
-        firebase_admin.initialize_app(cred)
+        if os.path.exists(key_path):
+            # 本機開發：使用金鑰檔案
+            cred = credentials.Certificate(key_path)
+            firebase_admin.initialize_app(cred)
+        else:
+            # Cloud Run 環境：使用專案預設服務帳戶，不需要金鑰檔案
+            firebase_admin.initialize_app()
 
 
 def send_notification(token: str, title: str, body: str, data: dict = None) -> bool:
