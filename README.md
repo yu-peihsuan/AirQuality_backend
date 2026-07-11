@@ -16,8 +16,12 @@ FastAPI (main.py)
 ├── 天氣資訊            ← 中央氣象署 O-A0003-001 / F-C0032-001
 ├── RAG AI 健康顧問     ← ChromaDB + GPT-4o-mini（OpenRouter）
 ├── GIS 熱點分析        ← KDE 核密度估計 + 風向下風處判斷
-└── FCM 推播通知        ← Firebase Cloud Messaging（每 30 分鐘排程）
+├── IDW 空間插值        ← 個人定位點空品估計（gis/interpolation.py）
+└── FCM 推播通知        ← Firebase Cloud Messaging
 ```
+
+**正式環境**：已部署於 Google Cloud Run（`asia-east1`，always-on）
+**服務網址**：https://airquality-api-968727437042.asia-east1.run.app（`/docs` 為 Swagger UI）
 
 ---
 
@@ -70,6 +74,26 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
+## 雲端部署（Google Cloud Run）
+
+後端以 Docker 容器部署於 Firebase 專案（`airquality-4d1b6`）的 Cloud Run，
+`min-instances=1` 維持常駐，APScheduler 排程不中斷。
+
+程式修改後重新部署（一行指令，網址不變）：
+
+```bash
+gcloud run deploy airquality-api --source . --region asia-east1
+```
+
+注意事項：
+- 環境變數（各 API 金鑰）已設定於 Cloud Run 服務上，重新部署自動沿用
+- `serviceAccountKey.json` 與 `.env` **不會**上傳（依 .gitignore 排除）；
+  雲端的 FCM 使用專案預設服務帳戶（`fcm_sender.py` 自動判斷）
+- Cloud Run 磁碟為暫時性：**重新部署會清空民眾回報 SQLite 資料**，展示前避免部署
+- `start.sh` 會讀取 Cloud Run 注入的 `PORT` 環境變數，本機仍預設 8000
+
+---
+
 ## API 端點總覽
 
 後端啟動後，可用 **Swagger UI** 互動測試所有端點：
@@ -90,6 +114,11 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 |------|------|------|
 | GET | `/api/air_quality` | 全台 AQI 資料 |
 | GET | `/api/air_quality?county=台南市` | 指定縣市 AQI |
+| GET | `/api/air_quality/estimate?lat=22.73&lng=120.28` | **IDW 空間插值**：估計任意座標的 AQI/PM2.5（k 個鄰近測站反距離加權，預設 k=4, p=2） |
+
+> IDW 以全台 84 測站留一交叉驗證（LOOCV），較「最近測站法」降低
+> AQI 估計誤差 **19.2%**（MAE 7.11→5.74）、PM2.5 誤差 **21.5%**。
+> 驗證腳本：`python analysis/idw_validation.py`
 
 ---
 
@@ -119,10 +148,15 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
-| GET | `/api/user_reports` | 24 小時內確認污染回報 |
+| GET | `/api/user_reports` | 24 小時內回報（含 `is_confirmed` 可信度欄位） |
 | GET | `/api/user_reports?region=台南市` | 指定地區回報 |
 | GET | `/api/user_reports/history` | 所有歷史回報 |
 | POST | `/api/report` | 提交民眾回報 |
+
+**回報驗證機制**：每筆回報經 LLM 語意審核（`analyze_citizen_report`）判定
+是否為可信污染事件（`is_confirmed`）並分類事件類型/嚴重度；相同類型＋內容
+自動去重；熱點分析需 `min_reports` 筆以上共識才成立警示。App 端依
+`is_confirmed` 顯示【已證實】/【未證實】標籤。
 
 POST `/api/report` 請求格式：
 ```json
@@ -200,12 +234,23 @@ POST `/api/fcm/push` 請求格式：
 
 ---
 
-## 排程任務
+## 排程任務（APScheduler）
 
 | 任務 | 頻率 | 說明 |
 |------|------|------|
-| 新聞爬蟲 | 每 6 小時 | 抓取 Google News / Yahoo / 公視，LLM 語意過濾 |
-| 空品預報推播 | 每 30 分鐘 | 偵測 AQI ≥ 101 自動推播，當日同縣市不重複推 |
+| 新聞爬蟲 | 每 1 小時 | 抓取 Google News / Yahoo / 公視，LLM 語意過濾，清除過期資料 |
+| 空品預報推播 | 每 2 小時 | 明日 AQI ≥ 101 的縣市自動推播，當日同縣市不重複推 |
+| 每日空品摘要 | 依用戶設定時間 | 推播使用者訂閱的每日 AQI 摘要通知 |
+
+> 排程依賴常駐程序，Cloud Run 以 `min-instances=1` 保持實例不休眠。
+
+---
+
+## 分析工具（analysis/）
+
+| 腳本 | 用途 |
+|------|------|
+| `idw_validation.py` | IDW vs 最近測站法留一交叉驗證（MAE/RMSE，比較 k、power 參數組合） |
 
 ---
 
