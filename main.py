@@ -590,6 +590,34 @@ def get_air_quality(county: str = None):
         }
 
 
+@app.get("/api/air_quality/estimate")
+def get_air_quality_estimate(lat: float, lng: float, k: int = 4, power: float = 2.0):
+    """
+    以 IDW 反距離加權空間插值，估計使用者定位點的 AQI 與 PM2.5。
+    取代單一最近測站法，提升個人定位點的數據精度。
+    """
+    from gis.interpolation import idw_estimate
+    base = get_air_quality(None)
+    records = base.get("records", [])
+    if not records:
+        return {"status": "error", "message": "無測站資料", "estimate": None, "stations": []}
+
+    aqi_est  = idw_estimate(lat, lng, records, field="aqi",   k=k, power=power)
+    pm25_est = idw_estimate(lat, lng, records, field="pm2.5", k=k, power=power)
+    if not aqi_est:
+        return {"status": "error", "message": "有效測站不足", "estimate": None, "stations": []}
+
+    return {
+        "status": base.get("status", "success"),
+        "estimate": {
+            "aqi":    aqi_est["value"],
+            "pm25":   pm25_est["value"] if pm25_est else None,
+            "method": aqi_est["method"],
+            "k":      k,
+        },
+        "stations": aqi_est["stations"],
+    }
+
 
 @app.get("/api/user_reports")
 def get_user_reports(region: str = None):
