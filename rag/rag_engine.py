@@ -184,6 +184,7 @@ def generate_advice(
     weather_desc: str = "",
     is_raining: bool = False,
     weather_forecast: str = "",
+    retrieval_mode: str = "hybrid",
 ) -> dict:
     """
     核心 RAG 生成函式。
@@ -204,21 +205,33 @@ def generate_advice(
     rule = get_rule_by_aqi(aqi)
     aqi_level = rule["level"] if rule else "未知"
 
-    # 2. RAG 語意檢索：組合查詢語句並檢索最相關規則
+    # 2. 知識檢索（retrieval_mode 供消融實驗切換策略；正式服務固定 hybrid）
+    #    none     ：不檢索（純 LLM 基線）
+    #    semantic ：僅語意檢索 top-k
+    #    rule     ：僅規則式注入（AQI 等級對應規則）
+    #    hybrid   ：語意檢索 + 等級規則置頂 + 事件規則注入（正式模式）
     query_text = _build_query_text(aqi, user_profile, event_description)
-    retrieved = query_knowledge_base(query_text, n_results=3)
 
-    # 強制將對應 AQI 等級規則移到第一位（alignment：確保正確等級排序優先）
-    if rule:
-        retrieved = [r for r in retrieved if r["id"] != rule["id"]]
-        retrieved.insert(0, {"id": rule["id"], "document": rule.get("text", "")})
+    if retrieval_mode == "none":
+        retrieved = []
+    elif retrieval_mode == "rule":
+        retrieved = [{"id": rule["id"], "document": rule.get("text", "")}] if rule else []
+    elif retrieval_mode == "semantic":
+        retrieved = query_knowledge_base(query_text, n_results=3)
+    else:  # hybrid
+        retrieved = query_knowledge_base(query_text, n_results=3)
 
-    # 若有事件且是火災，強制加入火災規則
-    if "火災" in event_description or "濃煙" in event_description or "fire" in event_description.lower():
-        event_retrieved = query_knowledge_base("火災濃煙 fire smoke PM2.5", n_results=1)
-        for er in event_retrieved:
-            if er["id"] not in [r["id"] for r in retrieved]:
-                retrieved.append(er)
+        # 強制將對應 AQI 等級規則移到第一位（alignment：確保正確等級排序優先）
+        if rule:
+            retrieved = [r for r in retrieved if r["id"] != rule["id"]]
+            retrieved.insert(0, {"id": rule["id"], "document": rule.get("text", "")})
+
+        # 若有事件且是火災，強制加入火災規則
+        if "火災" in event_description or "濃煙" in event_description or "fire" in event_description.lower():
+            event_retrieved = query_knowledge_base("火災濃煙 fire smoke PM2.5", n_results=1)
+            for er in event_retrieved:
+                if er["id"] not in [r["id"] for r in retrieved]:
+                    retrieved.append(er)
 
     # 3. 整理檢索結果供 Prompt 使用（含完整 health_effects / advice / special_groups）
     retrieved_texts = _build_retrieved_context(retrieved, user_profile)

@@ -26,6 +26,7 @@ from db.reports_db import (
     get_recent_reports, get_all_reports,
     get_recent_confirmed_by_county,
     get_recent_reports_by_region,
+    count_recent_by_device, exists_similar_recent,
 )
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -647,11 +648,76 @@ class ReportRequest(BaseModel):
     description: str
     latitude: float | None = None
     longitude: float | None = None
+    device_id: str | None = None
+
+
+def _cross_verify_report(county: str, event_type: str) -> list[str]:
+    """
+    多源交叉驗證：將民眾回報與客觀資料源自動比對，回傳佐證來源清單。
+    比對來源：官方火災警示（NCDR）、新聞事件、測站數據異常。
+    """
+    sources: list[str] = []
+    norm = normalize_name(county) if county else ""
+    if not norm:
+        return sources
+
+    # 1. 官方火災警示（火災類回報）
+    if event_type in ("fire", "火災煙霧"):
+        try:
+            from crawler.fire_alert_scraper import fetch_fire_alerts
+            for alert in fetch_fire_alerts(hours=24):
+                if (norm in normalize_name(alert.get("county", ""))
+                        or norm in normalize_name(alert.get("area_desc", ""))):
+                    sources.append("官方火災警示")
+                    break
+        except Exception as e:
+            print(f"交叉驗證-火災警示查詢失敗：{e}")
+
+    # 2. 新聞事件（同區域的已確認污染事件或火災相關報導）
+    try:
+        news_path = os.path.join(os.path.dirname(__file__), "crawler", "scraped_news.json")
+        if os.path.exists(news_path):
+            with open(news_path, "r", encoding="utf-8") as f:
+                all_news = json.load(f)
+            for n in all_news:
+                if norm not in normalize_name(n.get("region", "")):
+                    continue
+                se_n = n.get("structured_event") or {}
+                if se_n.get("is_confirmed_pollution_event") or any(
+                        k in n.get("title", "") for k in ("火災", "濃煙", "火警", "大火", "異味")):
+                    sources.append("新聞報導")
+                    break
+    except Exception as e:
+        print(f"交叉驗證-新聞查詢失敗：{e}")
+
+    # 3. 測站數據異常（PM2.5 達敏感族群不健康等級，或 AQI 破百）
+    try:
+        data = _fetch_aqi_for_county(county)
+        if (data.get("pm25") or 0) >= 35.5 or (data.get("aqi") or 0) >= 101:
+            sources.append("測站數據異常")
+    except Exception as e:
+        print(f"交叉驗證-測站查詢失敗：{e}")
+
+    return sources
 
 
 @app.post("/api/report")
 def submit_report(req: ReportRequest):
     now = datetime.now(timezone(timedelta(hours=8))).replace(tzinfo=None).isoformat()
+
+    # ── 回報頻率限制（防灌水／防重複）────────────────────────────────────
+    if req.device_id and count_recent_by_device(req.device_id, minutes=3) >= 1:
+        return {
+            "status": "rate_limited",
+            "message": "回報太頻繁，請於 3 分鐘後再試。",
+            "is_confirmed": False,
+        }
+    if exists_similar_recent(req.location, req.category, req.description, hours=6):
+        return {
+            "status": "duplicate",
+            "message": "相同內容的回報已存在，感謝您的通報。",
+            "is_confirmed": False,
+        }
 
     # 座標為 null 時，嘗試用 Google Maps API 將地址文字轉換為座標
     lat = req.latitude
@@ -679,7 +745,14 @@ def submit_report(req: ReportRequest):
     se = structured.get("structured_event")
     is_confirmed = se.get("is_confirmed_pollution_event", False) if se else False
 
+    # 多源交叉驗證：與官方警示／新聞／測站數據自動比對
+    county_v = _extract_county_from_location(req.location) or ""
+    event_type_v = (se.get("event_type") or req.category) if se else req.category
+    verify_sources = _cross_verify_report(county_v, event_type_v)
+
     # 所有回報（確認＆未確認）都存入 SQLite，is_confirmed 欄位區分
+    structured["device_id"] = req.device_id
+    structured["verify_sources"] = verify_sources
     insert_report(structured)
 
     # 確認為污染事件時，自動推播給受影響縣市的裝置
@@ -725,6 +798,7 @@ def submit_report(req: ReportRequest):
         "status": "success",
         "message": "回報已送出，感謝您的通報。",
         "is_confirmed": is_confirmed,
+        "verify_sources": verify_sources,
         "structured_event": se,
     }
 
@@ -912,6 +986,54 @@ def get_rag_advice(req: RagAdviceRequest):
             "message": f"RAG 建議生成失敗: {str(e)}",
             "advice": None,
         }
+
+
+# ── RAG 消融實驗 Endpoint（研究用）────────────────────────────────────────────
+
+class RagExperimentRequest(BaseModel):
+    """消融實驗用：所有輸入固定給定，不抓即時天氣/事件，隔離檢索策略變因。"""
+    aqi: int
+    pm25: float = 0.0
+    user_profile: UserProfile = UserProfile()
+    event_description: str = "無"
+    retrieval_mode: str = "hybrid"   # none / semantic / rule / hybrid
+
+
+@app.post("/api/rag_advice/experiment")
+def rag_advice_experiment(req: RagExperimentRequest):
+    """
+    檢索策略消融實驗（Ablation Study）端點。
+    以受控輸入直接呼叫 RAG 引擎，比較 none/semantic/rule/hybrid 四種檢索策略。
+    """
+    try:
+        result = generate_advice(
+            county="實驗情境",
+            aqi=req.aqi,
+            pm25=req.pm25,
+            wind_speed=0.0,
+            wind_direction=0.0,
+            user_profile=req.user_profile.model_dump(),
+            event_description=req.event_description,
+            is_downwind=False,
+            forecast_aqi=0,
+            forecast_status="",
+            temperature=25.0,
+            weather_desc="晴",
+            is_raining=False,
+            weather_forecast="無資料",
+            retrieval_mode=req.retrieval_mode,
+        )
+        return {
+            "status": "success",
+            "retrieval_mode": req.retrieval_mode,
+            "aqi": req.aqi,
+            "aqi_level": result["aqi_level"],
+            "advice": result["advice"],
+            "retrieved_rules": result["retrieved_rules"],
+            "rag_error": result.get("error"),
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "advice": None}
 
 
 # ── GIS 熱點分析 Endpoint ─────────────────────────────────────────────────────

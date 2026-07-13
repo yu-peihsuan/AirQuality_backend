@@ -39,12 +39,21 @@ def init_db():
                 is_confirmed         INTEGER DEFAULT 0,
                 published_at         TEXT,
                 timestamp            TEXT,
-                structured_event_json TEXT
+                structured_event_json TEXT,
+                device_id            TEXT,
+                verify_sources       TEXT
             )
         """)
+        # 舊資料庫遷移：補上後續新增的欄位（欄位已存在時忽略）
+        for col, typ in (("device_id", "TEXT"), ("verify_sources", "TEXT")):
+            try:
+                conn.execute(f"ALTER TABLE user_reports ADD COLUMN {col} {typ}")
+            except sqlite3.OperationalError:
+                pass
         conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp    ON user_reports(timestamp)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_region       ON user_reports(region)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_is_confirmed ON user_reports(is_confirmed)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_device_id    ON user_reports(device_id)")
         conn.commit()
     print("✅ user_reports DB 初始化完成")
 
@@ -62,8 +71,9 @@ def insert_report(record: dict):
             INSERT INTO user_reports
                 (source, region, category, title, summary, url,
                  latitude, longitude, event_type, severity, is_confirmed,
-                 published_at, timestamp, structured_event_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 published_at, timestamp, structured_event_json,
+                 device_id, verify_sources)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 record.get("source", "民眾回報"),
@@ -80,6 +90,8 @@ def insert_report(record: dict):
                 record.get("published_at", datetime.now().isoformat()),
                 record.get("timestamp", datetime.now().isoformat()),
                 se_json,
+                record.get("device_id"),
+                json.dumps(record.get("verify_sources") or [], ensure_ascii=False),
             ),
         )
         conn.commit()
@@ -92,7 +104,39 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     se_json = d.pop("structured_event_json", None)
     d["structured_event"] = json.loads(se_json) if se_json else None
     d["is_confirmed"] = bool(d.get("is_confirmed", 0))
+    d.pop("device_id", None)  # 裝置識別碼不對外輸出
+    try:
+        d["verify_sources"] = json.loads(d.get("verify_sources") or "[]")
+    except (json.JSONDecodeError, TypeError):
+        d["verify_sources"] = []
     return d
+
+
+# ── 頻率限制查詢 ─────────────────────────────────────────────────────────────
+
+def count_recent_by_device(device_id: str, minutes: int = 3) -> int:
+    """回傳指定裝置最近 N 分鐘內的回報數（頻率限制用）。"""
+    if not device_id:
+        return 0
+    cutoff = (datetime.now() - timedelta(minutes=minutes)).isoformat()
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM user_reports WHERE device_id = ? AND timestamp >= ?",
+            (device_id, cutoff),
+        ).fetchone()
+    return row["n"]
+
+
+def exists_similar_recent(region: str, category: str, summary: str, hours: int = 6) -> bool:
+    """檢查最近 N 小時內是否已有相同地點＋類型＋內容的回報（重複攔截用）。"""
+    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM user_reports "
+            "WHERE region = ? AND category = ? AND summary = ? AND timestamp >= ?",
+            (region, category, summary, cutoff),
+        ).fetchone()
+    return row["n"] > 0
 
 
 def get_recent_reports(hours: int = 24) -> list[dict]:
