@@ -21,7 +21,7 @@ FastAPI (main.py)
 ```
 
 **正式環境**：已部署於 Google Cloud Run（`asia-east1`，always-on）
-**服務網址**：https://airquality-api-968727437042.asia-east1.run.app（`/docs` 為 Swagger UI）
+**服務網址**：https://airquality-api-968727437042.asia-east1.run.app （`/docs` 為 Swagger UI）
 
 ---
 
