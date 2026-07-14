@@ -476,93 +476,6 @@ def cleanup_old_news():
     if deleted:
         print(f"🗑️  已清除 {deleted} 筆過期新聞（超過 {NEWS_RETENTION_HOURS} 小時）")
 
-import re as _re
-
-def _extract_street_from_title(title: str) -> str | None:
-    """從標題中擷取路名，例如「青年路」「民族路二段」。"""
-    pattern = r'[一-鿿]{1,6}(?:路|街|大道|大路)(?:[一二三四五六七八九十]+段)?'
-    matches = _re.findall(pattern, title)
-    return matches[0] if matches else None
-
-
-def _reverse_geocode_region(lat: float, lng: float, api_key: str) -> str | None:
-    """用座標反查行政區，回傳「台南市中西區」格式字串；失敗回傳 None。"""
-    try:
-        url = (
-            f"https://maps.googleapis.com/maps/api/geocode/json"
-            f"?latlng={lat},{lng}&key={api_key}&language=zh-TW&region=TW"
-        )
-        data = requests.get(url, timeout=10).json()
-        if data.get("status") != "OK" or not data.get("results"):
-            return None
-        components = data["results"][0].get("address_components", [])
-        city = district = ""
-        for comp in components:
-            ctypes = comp.get("types", [])
-            if "administrative_area_level_1" in ctypes:
-                city = comp["long_name"].replace("臺", "台")
-            if "administrative_area_level_2" in ctypes or "sublocality_level_1" in ctypes:
-                district = comp["long_name"]
-        return f"{city}{district}" if city and district else None
-    except Exception:
-        return None
-
-
-def _geocode_news_events(news_list: list) -> list:
-    """對確認的污染事件進行地理編碼，加入 latitude / longitude，並反查修正 region。"""
-    api_key = os.getenv("MAPS_API_KEY", "")
-    if not api_key:
-        print("⚠️  MAPS_API_KEY 未設定，跳過新聞地理編碼")
-        return news_list
-
-    for news in news_list:
-        se = news.get("structured_event")
-        if not se or not se.get("is_confirmed_pollution_event"):
-            continue
-
-        title  = news.get("title", "")
-        region = news.get("region", "")
-
-        # 1. 優先用「縣市 + 路名」作為查詢（最精確）
-        street = _extract_street_from_title(title)
-        if street:
-            county_m = _re.match(r'^([一-鿿]{2,3}(?:市|縣))', region)
-            county   = county_m.group(1) if county_m else ""
-            location_text = f"{county}{street}" if county else street
-        else:
-            # fallback：LLM 萃取的地點 → region
-            location_text = se.get("location_description") or region
-
-        if not location_text or location_text == "台灣 (未指明特定縣市)":
-            continue
-
-        try:
-            encoded = requests.utils.quote(location_text)
-            url = (
-                f"https://maps.googleapis.com/maps/api/geocode/json"
-                f"?address={encoded}&key={api_key}&language=zh-TW&region=TW"
-            )
-            resp = requests.get(url, timeout=10)
-            data = resp.json()
-            if data.get("status") == "OK":
-                loc = data["results"][0]["geometry"]["location"]
-                news["latitude"]  = loc["lat"]
-                news["longitude"] = loc["lng"]
-
-                # 2. 反查行政區，修正 region（確保與座標一致）
-                corrected = _reverse_geocode_region(loc["lat"], loc["lng"], api_key)
-                if corrected:
-                    news["region"] = corrected
-
-                print(f"  📍 Geocoded: {location_text} → ({loc['lat']:.4f}, {loc['lng']:.4f}) [{news['region']}]")
-            else:
-                print(f"  ⚠️  Geocoding 無結果（{data.get('status')}）：{location_text}")
-        except Exception as e:
-            print(f"  ⚠️  Geocoding 失敗：{location_text} | {e}")
-
-    return news_list
-
-
 def run_scraper(enable_llm_structuring: bool = True):
     """執行爬蟲並印出結果"""
     all_news = []
@@ -589,12 +502,13 @@ def run_scraper(enable_llm_structuring: bool = True):
          print(f"   連結: {news['url']}\n")
 
     # LLM 語意結構化（若模組存在且未被禁用）
+    # 註：新聞事件不做地理編碼——文字定位精度不足，改為僅顯示於「通知中心」列表，
+    # 不落在地圖上（地圖只保留有可信座標的官方警示與民眾 GPS 回報）。
     if enable_llm_structuring and _LLM_STRUCTURING_ENABLED and all_news:
         print("--------------------------------------------------")
         all_news = structure_news_batch(all_news)
-        all_news = _geocode_news_events(all_news)
         print("--------------------------------------------------")
-    
+
     return all_news
 
 if __name__ == "__main__":
