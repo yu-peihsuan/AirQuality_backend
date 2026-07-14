@@ -1,0 +1,722 @@
+[
+  {
+    "mode": "none",
+    "scenario": "S01",
+    "aqi": 30,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "現在空氣品質很好，但深夜不太適合外出，建議在家輕鬆活動，享受這個安靜的時光！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S02",
+    "aqi": 30,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "今天天氣晴朗，空氣品質也很好，但已經深夜了，還是建議好好休息，明天再計畫戶外活動哦！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S03",
+    "aqi": 30,
+    "profile": "一般成人",
+    "event": true,
+    "advice": "附近有火警濃煙飄散，建議你先關窗待在室內，若要外出記得戴口罩並避開相關區域喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": true,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S04",
+    "aqi": 80,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "現在是深夜，建議你舒舒服服待在家裡，做點輕鬆的活動吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S05",
+    "aqi": 80,
+    "profile": "老年人",
+    "event": false,
+    "advice": "現在是深夜，建議你待在家裡，享受放鬆的時光，明天再安排活動喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S06",
+    "aqi": 130,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "現在空氣品質不太理想，建議你待在室內，若有外出計畫，記得戴上口罩喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S07",
+    "aqi": 130,
+    "profile": "孕婦",
+    "event": false,
+    "advice": "今天天氣晴，但空氣品質不太理想，還是待在室內休息，放鬆心情吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S08",
+    "aqi": 180,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "今晚空氣不太理想，建議你關好窗戶，待在室內休息，明天再看看狀況吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S09",
+    "aqi": 180,
+    "profile": "老年人",
+    "event": false,
+    "advice": "今晚的空氣不太好，建議您最好留在家中休息，明天再出門活動吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S10",
+    "aqi": 250,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "現在空氣品質不佳，建議你關好窗戶，待在室內休息，保持良好通風喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S11",
+    "aqi": 250,
+    "profile": "一般成人",
+    "event": true,
+    "advice": "附近有工廠火災，濃煙瀰漫，建議關好窗戶待在室內，出門時一定要戴上口罩喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": true,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "none",
+    "scenario": "S12",
+    "aqi": 350,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "今晚空氣品質不佳，建議你關好窗戶，待在室內休息，避免外出。",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S01",
+    "aqi": 30,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "現在空氣品質很好，但已經深夜了，建議待在家裡休息，明天再去運動吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S02",
+    "aqi": 30,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "天氣晴朗，但已經是深夜了，建議今天就待在室內，明天再享受外面的清新空氣吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S03",
+    "aqi": 30,
+    "profile": "一般成人",
+    "event": true,
+    "advice": "附近有火災濃煙，請關閉窗戶並待在室內，若需外出一定要戴上口罩，避免靠近影響區域喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": true,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S04",
+    "aqi": 80,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "今天已經深夜了，建議待在室內休息，享受舒適的睡眠吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S05",
+    "aqi": 80,
+    "profile": "老年人",
+    "event": false,
+    "advice": "現在是深夜，建議您待在室內休息，不要外出活動，保持良好的睡眠品質喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S06",
+    "aqi": 130,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "今晚空氣不太好，建議你待在室內，記得準備好氣喘藥物，保持通風喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": true,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S07",
+    "aqi": 130,
+    "profile": "孕婦",
+    "event": false,
+    "advice": "今晚空氣不太適合外出，建議關好門窗，待在室內休息一下吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S08",
+    "aqi": 180,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "今晚空氣不太好，建議你待在室內，適時關窗並使用空氣清淨機會更安全喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S09",
+    "aqi": 180,
+    "profile": "老年人",
+    "event": false,
+    "advice": "今天晚上空氣品質不太好，建議你待在室內，保持門窗緊閉，這樣更安全喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S10",
+    "aqi": 250,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "現在空氣品質不佳，建議你留在室內休息，並確保隨身攜帶氣喘藥物以備不時之需。",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": true,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S11",
+    "aqi": 250,
+    "profile": "一般成人",
+    "event": true,
+    "advice": "附近有工廠火災，濃煙飄散，快關好窗戶待在室內，必要時出門記得戴上 N95 口罩喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": true,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "semantic",
+    "scenario": "S12",
+    "aqi": 350,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "現在空氣品質非常糟糕，建議你關窗待在室內，若要外出一定要全程戴上 N95 口罩喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S01",
+    "aqi": 30,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "現在空氣很清新，不妨趁著這個時候去外面散步，享受一下夜晚的寧靜吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S02",
+    "aqi": 30,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "今晚空氣很好，但已經很晚了，建議你待在家裡，做點輕鬆的活動吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S03",
+    "aqi": 30,
+    "profile": "一般成人",
+    "event": true,
+    "advice": "附近有火警濃煙飄散，建議關窗待在室內，如果要出門記得戴口罩並避開那一帶喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": true,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S04",
+    "aqi": 80,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "現在空氣品質還可以，晚上出門不太適合，建議在家做些輕鬆的運動或放鬆一下會更好喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S05",
+    "aqi": 80,
+    "profile": "老年人",
+    "event": false,
+    "advice": "現在空氣品質尚可，晚上適合在家輕鬆活動，保持心情愉快！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S06",
+    "aqi": 130,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "晚上了，別出門了，建議在室內休息，並隨身準備好氣喘藥物喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": true,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S07",
+    "aqi": 130,
+    "profile": "孕婦",
+    "event": false,
+    "advice": "今天天氣晴，空氣品質不太好，建議你待在室內，並關好門窗，讓自己更舒適喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S08",
+    "aqi": 180,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "今天空氣不太好，建議你關好窗戶，待在室內，享受一下安靜的深夜吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S09",
+    "aqi": 180,
+    "profile": "老年人",
+    "event": false,
+    "advice": "今天晚上空氣品質不太好，建議您待在室內休息，保持良好通風，不要出門哦！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S10",
+    "aqi": 250,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "今晚空氣品質不佳，建議你待在室內，確保有備用的吸入劑隨時可以用。",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S11",
+    "aqi": 250,
+    "profile": "一般成人",
+    "event": true,
+    "advice": "附近有工廠火災，濃煙彌漫，建議你關好窗戶待在室內，必要時出門務必戴上口罩。",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": true,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "rule",
+    "scenario": "S12",
+    "aqi": 350,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "今晚空氣品質相當危險，建議你緊閉門窗，待在室內並使用空氣清淨機，保護自己最重要喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S01",
+    "aqi": 30,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "現在空氣品質很好，不過深夜了，建議待在家裡做點輕鬆的運動或放鬆一下吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S02",
+    "aqi": 30,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "今天天氣晴朗，空氣品質良好，適合在家裡做些輕鬆的伸展運動，讓身心舒適喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S03",
+    "aqi": 30,
+    "profile": "一般成人",
+    "event": true,
+    "advice": "附近有火災濃煙飄散，建議先關窗待在室內，若必須出門，一定要戴上 N95 口罩並避開該區域喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": true,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S04",
+    "aqi": 80,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "現在是深夜，建議你待在室內休息，享受安靜的時光，明天再計劃活動喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S05",
+    "aqi": 80,
+    "profile": "老年人",
+    "event": false,
+    "advice": "現在已經深夜，建議你待在室內，明天再選擇適合的時間外出活動吧！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S06",
+    "aqi": 130,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "今晚空氣不太好，建議你留在室內，並隨時準備好你的氣喘藥物喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": true,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S07",
+    "aqi": 130,
+    "profile": "孕婦",
+    "event": false,
+    "advice": "今晚空氣品質不佳，最好留在室內，關上窗戶，避免長時間暴露在外喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": false,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S08",
+    "aqi": 180,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "今晚空氣品質不佳，建議你關好門窗，待在室內，必要時使用空氣清淨機。",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S09",
+    "aqi": 180,
+    "profile": "老年人",
+    "event": false,
+    "advice": "今晚空氣品質不佳，建議您待在室內，並關好門窗，保持通風良好。",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": false,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S10",
+    "aqi": 250,
+    "profile": "氣喘",
+    "event": false,
+    "advice": "今晚空氣品質非常不佳，最好留在室內休息，並確保隨身備好藥物以防不適喔！",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": true,
+      "length_ok": true
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S11",
+    "aqi": 250,
+    "profile": "一般成人",
+    "event": true,
+    "advice": "附近有工廠火災，建議你快關窗待在室內，必要時外出一定要戴上 N95 口罩喔。",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": true,
+      "personalized": null,
+      "length_ok": false
+    }
+  },
+  {
+    "mode": "hybrid",
+    "scenario": "S12",
+    "aqi": 350,
+    "profile": "一般成人",
+    "event": false,
+    "advice": "今晚的空氣品質非常差，建議你緊閉門窗，待在室內，並使用空氣清淨機來過濾空氣。",
+    "eval": {
+      "safety_violation": false,
+      "safety_applicable": true,
+      "event_response": null,
+      "personalized": null,
+      "length_ok": false
+    }
+  }
+]

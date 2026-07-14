@@ -40,6 +40,7 @@ _ADVICE_PROMPT = """# Role: 貼心且專業的生活顧問
 4. 行動具體化：建議必須具體可執行。寫「戴 N95 出門」取代「注意防護」，寫「今天適合去公園跑步」取代「空氣良好可外出」。
 
 # Execution Strategy
+-1. 安全優先（最高優先級）：若「附近污染事件」不是「無」（火災、濃煙、化學異味、下風處警告等），整句建議只圍繞防護行動（關窗、戴口罩、避開該區域），**嚴禁**同時出現「適合外出運動／跑步／散步」等鼓勵外出字句 — 即使 AQI 良好也一樣，因為測站數據反映不了局部污染事件。
 0. 時間與天氣感知：深夜／凌晨（22:00–06:00）不建議外出活動；正在下雨時即使空氣好也不建議戶外運動；氣溫 ≥ 33°C 提醒防曬補水；氣溫 ≤ 10°C 提醒保暖與心肺負擔。
 1. 切入角度：直接從「健康狀況」或「生活場景」開門見山。
    - 氣喘患者：提醒備藥或避免誘發。
@@ -66,7 +67,10 @@ Input: [孕婦, AQI 80, 預報改善]
 Output: 現在空氣還可以，散步沒問題，等等空氣會更好，到時候再出門也很棒！
 
 Input: [一般成人, AQI 170, 下風處]
-Output: 附近有污染源，風正往你這邊吹，今天出門口罩不能少。"""
+Output: 附近有污染源，風正往你這邊吹，今天出門口罩不能少。
+
+Input: [一般成人, AQI 30, 附近有火災濃煙]
+Output: 附近有火警濃煙飄散，先關窗待在室內，非得出門就戴口罩繞開那一帶。"""
 
 def _aqi_to_status(aqi: int) -> str:
     if aqi <= 50:  return "良好"
@@ -180,6 +184,7 @@ def generate_advice(
     weather_desc: str = "",
     is_raining: bool = False,
     weather_forecast: str = "",
+    retrieval_mode: str = "hybrid",
 ) -> dict:
     """
     核心 RAG 生成函式。
@@ -200,21 +205,33 @@ def generate_advice(
     rule = get_rule_by_aqi(aqi)
     aqi_level = rule["level"] if rule else "未知"
 
-    # 2. RAG 語意檢索：組合查詢語句並檢索最相關規則
+    # 2. 知識檢索（retrieval_mode 供消融實驗切換策略；正式服務固定 hybrid）
+    #    none     ：不檢索（純 LLM 基線）
+    #    semantic ：僅語意檢索 top-k
+    #    rule     ：僅規則式注入（AQI 等級對應規則）
+    #    hybrid   ：語意檢索 + 等級規則置頂 + 事件規則注入（正式模式）
     query_text = _build_query_text(aqi, user_profile, event_description)
-    retrieved = query_knowledge_base(query_text, n_results=3)
 
-    # 強制將對應 AQI 等級規則移到第一位（alignment：確保正確等級排序優先）
-    if rule:
-        retrieved = [r for r in retrieved if r["id"] != rule["id"]]
-        retrieved.insert(0, {"id": rule["id"], "document": rule.get("text", "")})
+    if retrieval_mode == "none":
+        retrieved = []
+    elif retrieval_mode == "rule":
+        retrieved = [{"id": rule["id"], "document": rule.get("text", "")}] if rule else []
+    elif retrieval_mode == "semantic":
+        retrieved = query_knowledge_base(query_text, n_results=3)
+    else:  # hybrid
+        retrieved = query_knowledge_base(query_text, n_results=3)
 
-    # 若有事件且是火災，強制加入火災規則
-    if "火災" in event_description or "濃煙" in event_description or "fire" in event_description.lower():
-        event_retrieved = query_knowledge_base("火災濃煙 fire smoke PM2.5", n_results=1)
-        for er in event_retrieved:
-            if er["id"] not in [r["id"] for r in retrieved]:
-                retrieved.append(er)
+        # 強制將對應 AQI 等級規則移到第一位（alignment：確保正確等級排序優先）
+        if rule:
+            retrieved = [r for r in retrieved if r["id"] != rule["id"]]
+            retrieved.insert(0, {"id": rule["id"], "document": rule.get("text", "")})
+
+        # 若有事件且是火災，強制加入火災規則
+        if "火災" in event_description or "濃煙" in event_description or "fire" in event_description.lower():
+            event_retrieved = query_knowledge_base("火災濃煙 fire smoke PM2.5", n_results=1)
+            for er in event_retrieved:
+                if er["id"] not in [r["id"] for r in retrieved]:
+                    retrieved.append(er)
 
     # 3. 整理檢索結果供 Prompt 使用（含完整 health_effects / advice / special_groups）
     retrieved_texts = _build_retrieved_context(retrieved, user_profile)
