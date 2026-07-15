@@ -228,7 +228,9 @@ def _fetch_aqi_county_best() -> dict[str, dict]:
 
 def _daily_summary_push_job():
     """每分鐘檢查一次：有裝置設定的每日通知時間到了，就推播當地 AQI 摘要（每裝置每天最多推一次）。"""
-    now = datetime.now()
+    # 使用台灣時間（UTC+8）：使用者於 App 設定的是本地時間，
+    # 而 Cloud Run 伺服器預設為 UTC，若用 datetime.now() 會差 8 小時而永遠對不上。
+    now = datetime.now(timezone(timedelta(hours=8)))
     today = now.strftime("%Y-%m-%d")
     due = get_due_daily_tokens(now.hour, now.minute, today)
     if not due:
