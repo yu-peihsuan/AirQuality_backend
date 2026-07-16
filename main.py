@@ -282,7 +282,9 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(_forecast_push_job,    "interval", minutes=30, id="forecast_push",   next_run_time=_dt.now())
     scheduler.add_job(_fire_alert_push_job,  "interval", minutes=10, id="fire_alert_push", next_run_time=_dt.now())
     scheduler.add_job(_aqi_alert_push_job,   "interval", minutes=30, id="aqi_alert_push",  next_run_time=_dt.now())
-    scheduler.add_job(_daily_summary_push_job, "interval", minutes=1, id="daily_summary_push")
+    # 每日摘要用 cron 對齊每分鐘第 0 秒檢查（interval 會落在啟動時刻的秒數上，
+    # 造成最多近一分鐘的延遲）；時間比對本身在 job 內以台灣時間（UTC+8）計算
+    scheduler.add_job(_daily_summary_push_job, "cron", second=0, id="daily_summary_push")
     scheduler.start()
     print("⏰ 新聞爬蟲排程已啟動（每 1 小時執行一次，啟動時立即執行）")
 

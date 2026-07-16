@@ -4,6 +4,7 @@
 import json
 import math
 import os
+from datetime import datetime, timedelta, timezone
 
 _TOKEN_FILE = os.path.join(os.path.dirname(__file__), "..", "crawler", "fcm_tokens.json")
 
@@ -94,35 +95,51 @@ def get_token_county(token: str) -> str | None:
 
 def set_daily_preference(token: str, enabled: bool, hour: int | None = None, minute: int | None = None):
     """設定或取消一筆裝置的每日空氣品質摘要通知時間。"""
+    # 配合 get_due_daily_tokens 的 catch-up 語意（時間已過即發）：
+    # 若設定的時間「今天已經過了」，標記今天已發，避免一設定就立刻收到通知；
+    # 設定的是今天稍後的時間則清除標記，讓今天照常發送。
+    now = datetime.now(timezone(timedelta(hours=8)))
+    last_sent = ""
+    if enabled and hour is not None and minute is not None \
+            and (hour, minute) <= (now.hour, now.minute):
+        last_sent = now.strftime("%Y-%m-%d")
+
     tokens = _load()
     for t in tokens:
         if t["token"] == token:
             t["daily_enabled"] = enabled
             if enabled:
-                t["daily_hour"]   = hour
-                t["daily_minute"] = minute
+                t["daily_hour"]      = hour
+                t["daily_minute"]    = minute
+                t["daily_last_sent"] = last_sent
             _save(tokens)
             return
     tokens.append({
-        "token":         token,
-        "county":        "",
-        "lat":           None,
-        "lng":           None,
-        "conditions":    "",
-        "daily_enabled": enabled,
-        "daily_hour":    hour,
-        "daily_minute":  minute,
+        "token":           token,
+        "county":          "",
+        "lat":             None,
+        "lng":             None,
+        "conditions":      "",
+        "daily_enabled":   enabled,
+        "daily_hour":      hour,
+        "daily_minute":    minute,
+        "daily_last_sent": last_sent,
     })
     _save(tokens)
 
 
 def get_due_daily_tokens(hour: int, minute: int, today: str) -> list[dict]:
-    """取得指定時:分要收每日通知、且今天還沒發過、且已知所在縣市的裝置。"""
+    """取得每日通知「時間已到、今天還沒發過」且已知所在縣市的裝置。
+
+    採 catch-up 語意（<= 而非 ==）：若某一分鐘的排程檢查被延遲或跳過
+    （如 Cloud Run 背景 CPU 節流），下一次檢查仍會補發，不會整天漏發。
+    """
     return [
         t for t in _load()
         if t.get("daily_enabled")
-        and t.get("daily_hour") == hour
-        and t.get("daily_minute") == minute
+        and t.get("daily_hour") is not None
+        and t.get("daily_minute") is not None
+        and (t["daily_hour"], t["daily_minute"]) <= (hour, minute)
         and t.get("daily_last_sent") != today
         and t.get("county")
     ]
