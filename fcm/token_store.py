@@ -93,6 +93,14 @@ def get_token_county(token: str) -> str | None:
     return None
 
 
+def get_token_record(token: str) -> dict | None:
+    """取得指定裝置的完整註冊資料（含縣市與座標）；未註冊回傳 None。"""
+    for t in _load():
+        if t["token"] == token:
+            return t
+    return None
+
+
 def set_daily_preference(token: str, enabled: bool, hour: int | None = None, minute: int | None = None):
     """設定或取消一筆裝置的每日空氣品質摘要通知時間。"""
     # 配合 get_due_daily_tokens 的 catch-up 語意（時間已過即發）：

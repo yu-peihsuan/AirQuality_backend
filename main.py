@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import requests
 import os
+import math
 import urllib3
 import json
 from datetime import datetime, timedelta, timezone
@@ -17,7 +18,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from rag.llm_structurer import analyze_citizen_report
 from fcm.token_store import (
     register_token, get_tokens_by_county, get_all_tokens,
-    set_daily_preference, get_due_daily_tokens, mark_daily_sent, get_token_county,
+    set_daily_preference, get_due_daily_tokens, mark_daily_sent, get_token_record,
 )
 from fcm.fcm_sender import send_multicast
 from gis.hotspot_analyzer import analyze_hotspots, check_downwind, get_affected_counties, COUNTY_CENTROIDS
@@ -204,8 +205,8 @@ def _aqi_alert_push_job():
 
 # ── 每日空氣品質摘要推播 ──────────────────────────────────────────────────────
 
-def _fetch_aqi_county_best() -> dict[str, dict]:
-    """抓取即時 AQI，回傳每個縣市 AQI 最高的站點資料 {county: {aqi, status}}。"""
+def _fetch_aqi_all_stations() -> list[dict]:
+    """抓取即時 AQI，回傳全台測站清單 [{sitename, county, aqi, status, lat, lng}]。"""
     API_KEY = os.getenv("MOENV_API_KEY", "")
     url = (f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
            f"?api_key={API_KEY}&limit=1000&sort=ImportDate desc&format=JSON")
@@ -214,15 +215,43 @@ def _fetch_aqi_county_best() -> dict[str, dict]:
     if not isinstance(records, list):
         records = records.get("records", [])
 
-    county_best: dict[str, dict] = {}
+    stations: list[dict] = []
     for r in records:
-        county = r.get("county", "")
         try:
-            aqi = int(r.get("aqi", 0))
+            stations.append({
+                "sitename": r.get("sitename", ""),
+                "county":   r.get("county", ""),
+                "aqi":      int(r.get("aqi", 0)),
+                "status":   r.get("status", ""),
+                "lat":      float(r.get("latitude")),
+                "lng":      float(r.get("longitude")),
+            })
         except (ValueError, TypeError):
             continue
-        if county and aqi > county_best.get(county, {}).get("aqi", -1):
-            county_best[county] = {"aqi": aqi, "status": r.get("status", "")}
+    return stations
+
+
+def _nearest_station(stations: list[dict], lat: float, lng: float) -> dict | None:
+    """回傳距離 (lat, lng) 最近的測站；無資料回傳 None。"""
+    best, best_d = None, None
+    for s in stations:
+        d_lat = math.radians(s["lat"] - lat)
+        d_lng = math.radians(s["lng"] - lng)
+        a = (math.sin(d_lat / 2) ** 2
+             + math.cos(math.radians(lat)) * math.cos(math.radians(s["lat"]))
+             * math.sin(d_lng / 2) ** 2)
+        d = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        if best_d is None or d < best_d:
+            best, best_d = s, d
+    return best
+
+
+def _county_best_from(stations: list[dict]) -> dict[str, dict]:
+    """由測站清單整理出每縣市 AQI 最高的站（無座標裝置的 fallback）。"""
+    county_best: dict[str, dict] = {}
+    for s in stations:
+        if s["county"] and s["aqi"] > county_best.get(s["county"], {}).get("aqi", -1):
+            county_best[s["county"]] = s
     return county_best
 
 
@@ -238,22 +267,37 @@ def _daily_summary_push_job():
 
     print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 每日摘要推播：{len(due)} 台裝置到時間")
     try:
-        county_best = _fetch_aqi_county_best()
+        stations = _fetch_aqi_all_stations()
     except Exception as e:
         print(f"  ⚠️ 每日摘要取得 AQI 失敗：{e}")
         return
+    if not stations:
+        print("  ⚠️ 每日摘要：無測站資料，跳過本輪")
+        return
+    county_best = _county_best_from(stations)
 
     for t in due:
-        info = county_best.get(t["county"])
-        if not info:
+        # 有座標 → 用「最近測站」（與 App 首頁顯示一致）；無座標 → 縣市最高 AQI 站
+        s = None
+        lat, lng = t.get("lat"), t.get("lng")
+        if lat is not None and lng is not None:
+            try:
+                s = _nearest_station(stations, float(lat), float(lng))
+            except (ValueError, TypeError):
+                s = None
+        use_nearest = s is not None
+        if s is None:
+            s = county_best.get(t["county"])
+        if not s:
             continue
         title = f"🌤 每日空氣品質摘要｜{t['county']}"
-        body  = f"AQI {info['aqi']}（{info['status']}）"
+        body = (f"鄰近測站 {s['sitename']}｜AQI {s['aqi']}（{s['status']}）"
+                if use_nearest else f"AQI {s['aqi']}（{s['status']}）")
         try:
             send_multicast([t["token"]], title=title, body=body,
                             data={"type": "daily_summary", "county": t["county"]})
             mark_daily_sent(t["token"], today)
-            print(f"  📲 每日摘要推播：{t['county']} AQI {info['aqi']}")
+            print(f"  📲 每日摘要推播：{t['county']} {s['sitename']} AQI {s['aqi']}")
         except Exception as e:
             print(f"  ⚠️ 每日摘要推播失敗：{t['county']} | {e}")
 
@@ -1187,19 +1231,32 @@ class DailyNotificationTestRequest(BaseModel):
 
 @app.post("/api/fcm/daily-notification/test")
 def test_daily_notification(req: DailyNotificationTestRequest):
-    """測試用：立即用該裝置目前註冊的縣市推播一次每日摘要，不等排程時間、不佔用當天的正式額度。"""
-    county = get_token_county(req.token)
+    """測試用：立即推播一次每日摘要，不等排程時間、不佔用當天的正式額度。
+    與正式排程同邏輯：有座標用最近測站（與 App 首頁一致），無座標退縣市最高 AQI 站。"""
+    rec = get_token_record(req.token)
+    county = (rec or {}).get("county") or ""
     if not county:
         return {"status": "error", "message": "找不到這個裝置的縣市，請確認 App 已定位並上傳過 Token"}
     try:
-        info = _fetch_aqi_county_best().get(county)
-        if not info:
+        stations = _fetch_aqi_all_stations()
+        s = None
+        lat, lng = rec.get("lat"), rec.get("lng")
+        if lat is not None and lng is not None:
+            try:
+                s = _nearest_station(stations, float(lat), float(lng))
+            except (ValueError, TypeError):
+                s = None
+        use_nearest = s is not None
+        if s is None:
+            s = _county_best_from(stations).get(county)
+        if not s:
             return {"status": "error", "message": f"目前查不到 {county} 的即時 AQI 資料"}
         title = f"🌤 每日空氣品質摘要｜{county}"
-        body  = f"AQI {info['aqi']}（{info['status']}）"
+        body = (f"鄰近測站 {s['sitename']}｜AQI {s['aqi']}（{s['status']}）"
+                if use_nearest else f"AQI {s['aqi']}（{s['status']}）")
         send_multicast([req.token], title=title, body=body,
                         data={"type": "daily_summary_test", "county": county})
-        return {"status": "success", "county": county, "aqi": info["aqi"]}
+        return {"status": "success", "county": county, "aqi": s["aqi"]}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
