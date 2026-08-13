@@ -1,0 +1,27 @@
+# 開發／測試相依。
+#
+# 這份清單刻意「不」引用 requirements.txt，而是列出單元測試實際需要的套件。
+# 理由：
+#   1. chromadb 會帶進 onnxruntime／grpcio／opentelemetry 等重量級傳遞相依，
+#      安裝要數分鐘，但知識庫只有 8 條規則，單元測試完全用不到向量資料庫。
+#      tests/conftest.py 會在 chromadb 缺席時注入極簡替身。
+#   2. 單元測試跑得快（目前約 2 秒）才會有人真的在 commit 前跑。
+#
+# 需要驗證真實向量檢索或真實外部 API 時，請另建掛 @pytest.mark.network
+# 的整合測試，並在該工作流程安裝完整的 requirements.txt。
+
+pytest>=8.0
+pytest-cov>=5.0
+
+# 受測程式碼的直接相依
+fastapi
+pydantic
+requests
+beautifulsoup4
+feedparser
+apscheduler
+openai
+python-dotenv
+firebase-admin
+numpy
+scipy

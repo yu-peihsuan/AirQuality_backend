@@ -1,0 +1,33 @@
+[run]
+branch = True
+source = .
+
+omit =
+    # 測試本身不計入覆蓋率：測試檔的覆蓋率必然接近 100%，
+    # 算進去只會稀釋分母、讓數字看起來比實際好看。
+    tests/*
+    # 手動 operational 工具與研究腳本，不在請求路徑上
+    scripts/*
+    analysis/*
+    .venv/*
+    */site-packages/*
+
+[report]
+# 預設不列 Missing 欄位：CI 的 markdown 摘要表格會被行號清單撐爆而難以閱讀。
+# 本機要看未覆蓋行號請用 pytest --cov --cov-report=term-missing
+show_missing = False
+skip_covered = False
+precision = 1
+
+exclude_also =
+    # 防禦性分支與無法在單元測試中重現的路徑
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    raise NotImplementedError
+    except ImportError:
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml
