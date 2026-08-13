@@ -6,16 +6,17 @@ on:
   pull_request:
 
 jobs:
+  # 主要工作：跑測試並產出覆蓋率報告。
+  # 刻意在 UTC 下執行：正式環境（Cloud Run）就是 UTC，
+  # 而多數時間相關的缺陷只在非 Asia/Taipei 的時區才會浮現。
   unit:
     runs-on: ubuntu-latest
-    # 刻意在 UTC 下執行：正式環境（Cloud Run）就是 UTC，
-    # 而多數時間相關的缺陷只在非 Asia/Taipei 的時區才會浮現。
     env:
       TZ: UTC
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -25,19 +26,43 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run unit tests
-        run: pytest -q
+      # --cov-fail-under 是「棘輪」：只准往上調，不准往下。
+      # 目前的 43% 反映的是「純邏輯覆蓋良好、碰 IO 的部分幾乎沒有」，
+      # 其中 main.py（800 敘述、18.9%）就佔了全部未覆蓋敘述的一半。
+      - name: Run unit tests with coverage
+        run: pytest --cov --cov-report=xml --cov-report=html --cov-fail-under=42
 
-  # 同一套測試在 Asia/Taipei 下再跑一次。
+      # 覆蓋率表格直接顯示在 Actions 執行頁面，不需要任何第三方服務或 token
+      - name: Publish coverage summary
+        if: always()
+        run: |
+          {
+            echo "## 測試覆蓋率"
+            echo
+            echo "整體：**$(python -m coverage report --format=total)%**（僅計生產程式碼，含 branch coverage）"
+            echo
+            python -m coverage report --format=markdown --skip-covered
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # HTML 報告可下載後逐行檢視哪些分支沒被走到
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: htmlcov/
+          retention-days: 14
+
+  # 同一套測試在 Asia/Taipei 下再跑一次（不重複計算覆蓋率）。
   # 兩個時區都綠燈，才代表時間邏輯真的與行程時區無關。
   unit-taipei:
     runs-on: ubuntu-latest
     env:
       TZ: Asia/Taipei
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip

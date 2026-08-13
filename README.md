@@ -268,7 +268,16 @@ pytest -m known_bug -q          # 列出所有已知缺陷
 pytest -m known_bug --runxfail  # 看它們實際失敗在哪一行
 ```
 
-測試設計原則、缺陷清單、撰寫新測試的規範，詳見 **[TESTING.md](TESTING.md)**。
+覆蓋率（生產程式碼、含 branch coverage）：
+
+```bash
+pytest --cov --cov-report=term-missing
+```
+
+CI 會把覆蓋率表格寫進 GitHub Actions 的執行摘要頁，並保留 HTML 報告 artifact。
+
+測試設計原則、覆蓋率現況與解讀、缺陷清單、撰寫新測試的規範，
+詳見 **[TESTING.md](TESTING.md)**。
 
 ---
 

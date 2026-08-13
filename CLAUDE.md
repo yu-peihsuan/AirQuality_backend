@@ -21,6 +21,7 @@ pytest -m known_bug -q                # 只列已知缺陷
 pytest -m known_bug --runxfail        # 看已知缺陷實際失敗在哪一行
 TZ=UTC pytest -q                      # 以正式環境時區執行（CI 會跑這個）
 pytest -m network tests/integration/  # 需真實金鑰、會產生費用，預設不跑
+pytest --cov --cov-report=term-missing   # 覆蓋率（會讓測試從 1.4s 變 4.5s）
 ```
 
 `scripts/` 下是會影響真實使用者或產生費用的手動工具，**不是測試**：
@@ -136,7 +137,12 @@ Cloud Run 是 UTC 就會差 8 小時。**新增任何時間比較前，先確認
 2. **測試不得打真實網路**。`tests/conftest.py` 有 autouse fixture 攔截所有 `requests`
    對外呼叫並直接 assert 失敗。確實需要網路的測試請掛 `@pytest.mark.network`。
 
-3. **測試不依賴 chromadb**。`requirements-dev.txt` 刻意不引用 `requirements.txt`——
+3. **覆蓋率的 `--cov-fail-under` 是棘輪，只准往上調**。目前 42%（實際 43%）。
+   生產覆蓋率偏低幾乎全來自 `main.py`（800 敘述、19%）。
+   **不要為了衝數字去補 `main.py` 的測試**——它即將被拆層，
+   拆完之後邏輯變成可注入的純函式，覆蓋率會自然上升。
+
+4. **測試不依賴 chromadb**。`requirements-dev.txt` 刻意不引用 `requirements.txt`——
    chromadb 會帶進 onnxruntime／grpcio 等重量級傳遞相依，安裝要數分鐘，
    但知識庫只有 8 條規則。`conftest.py` 在 chromadb 缺席時注入替身。
    驗證真實向量檢索請另建 `@pytest.mark.network` 的整合測試。

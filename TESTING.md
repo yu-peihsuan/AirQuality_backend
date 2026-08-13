@@ -147,6 +147,57 @@ pytest -m known_bug --runxfail  # 看實際失敗位置
 
 ---
 
+## 覆蓋率
+
+```bash
+pytest --cov                              # 摘要
+pytest --cov --cov-report=term-missing    # 含未覆蓋行號
+pytest --cov --cov-report=html && open htmlcov/index.html   # 逐行檢視
+```
+
+CI 會在 UTC 那個 job 產出覆蓋率，並把表格直接寫進 GitHub Actions 的
+執行摘要頁（不需要 Codecov 之類的第三方服務或 token），
+HTML 報告則以 artifact 形式保留 14 天。
+
+**覆蓋率不加進 `pytest.ini` 的 `addopts`**：它會讓本機測試從 1.4 秒變成 4.5 秒。
+本機的預設體驗要維持「快到可以每次存檔就跑」，覆蓋率是 CI 與需要時才開的選項。
+
+### 目前的數字與它真正的意思
+
+生產程式碼（不含 `tests/`、`scripts/`、`analysis/`）**43%**，含 branch coverage。
+
+| 模組 | 覆蓋率 | |
+|---|---:|---|
+| `gis/interpolation.py` | 100% | 純函式，完整覆蓋 |
+| `gis/hotspot_analyzer.py` | 96% | |
+| `fcm/token_store.py` | 91% | |
+| `rag/rag_engine.py` | 81% | |
+| `db/reports_db.py` | 81% | |
+| `crawler/forecast_fetcher.py` | 70% | |
+| `crawler/news_scraper.py` | 49% | 過濾邏輯有測，RSS 抓取沒有 |
+| `main.py` | **19%** | 800 敘述，佔全部未覆蓋敘述的一半 |
+| `crawler/weather_fetcher.py` | 7% | CWA 回應解析完全沒測 |
+| `rag/llm_structurer.py` | 8% | |
+| `db/firestore_reports.py` | 0% | 尚未接上 |
+
+這個分佈說明的是：**純邏輯覆蓋良好，碰網路／IO 的部分幾乎沒有。**
+這正是「測試一律不打外部 API」這個設計的必然結果，不是疏忽。
+
+**不要為了衝高數字而去補 `main.py` 的測試。** `main.py` 即將被拆成
+router / service / client 三層，現在對著它寫測試是浪費——拆完之後
+business logic 變成可注入的純函式，覆蓋率會自然上升。
+現階段覆蓋率的用途是**指出重構的盲區**，不是 KPI。
+
+### `--cov-fail-under` 是棘輪
+
+CI 的門檻設在 **42%**（略低於現值以避免四捨五入造成的抖動）。
+
+規則很簡單：**只准往上調，不准往下調。** 它的作用是防止新增未測試的程式碼
+把整體拉低，而不是宣告某個數字是「夠好」。每當有一批模組補上測試，
+就把門檻往上推到新的實際值。
+
+---
+
 ## 時區
 
 正式環境（Cloud Run）的 TZ 是 **UTC**，開發機通常是 **Asia/Taipei**。
@@ -242,13 +293,18 @@ monkeypatch.setattr(weather_mod, "fetch_weather_for_county", _stub)
 
 ## 目前未涵蓋的範圍
 
-寫測試時值得知道哪裡還是空白：
+跑 `pytest --cov --cov-report=term-missing` 可以得到精確清單，以下是重點：
 
-- **`db/firestore_reports.py`**：沒有測試（該模組目前也未被接上）
+- **`db/firestore_reports.py`**（0%）：沒有測試（該模組目前也未被接上）
+- **`crawler/weather_fetcher.py`**（7%）：CWA 回應格式解析（`_get_field` 要應付
+  dict 與 list 兩種結構、`_get_rain` 要試五個可能欄位名）未覆蓋。
+  這兩個函式全是格式猜測邏輯，用寫死的 CWA 回應樣本就能測，CP 值很高。
+- **`rag/llm_structurer.py`**（8%）：LLM 回應的解析（markdown code block 剝除、
+  JSON 解析失敗的降級）未覆蓋，這段不需要真實 LLM 就能測
+- **`crawler/fire_alert_scraper.py`**（15%）：CAP XML 解析與座標順序判斷
+  （`_parse_circle` 會試 lat,lng 與 lng,lat 兩種順序）未覆蓋
 - **爬蟲的網路層**：`fetch_pts_news` / `fetch_yahoo_news` / `fetch_google_news`
   只測了過濾邏輯，RSS 解析與 HTML 清理未覆蓋
-- **`crawler/weather_fetcher.py`**：CWA 回應格式解析（`_get_field` 要應付
-  dict 與 list 兩種結構、`_get_rain` 要試五個可能欄位名）未覆蓋
-- **`main.py` 的排程 job**：五個 `_*_push_job` 沒有測試
+- **`main.py` 的排程 job**（19%）：五個 `_*_push_job` 沒有測試
 - **端對端**：沒有 `TestClient` 層級的 HTTP 測試（`/api/rag_advice` 是以
   直接呼叫函式的方式測編排邏輯，未經過 FastAPI 的序列化與驗證）

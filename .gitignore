@@ -15,6 +15,7 @@ env/
 # 測試產生的暫存檔
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 coverage.xml
 
