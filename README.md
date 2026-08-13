@@ -253,9 +253,15 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
-360 個測試約 2 秒跑完，不打外部 API、不呼叫 LLM、不發送推播、不需要 chromadb。
+347 個單元測試約 2 秒跑完，不打外部 API、不呼叫 LLM、不發送推播、不需要 chromadb。
 
-其中 27 個是**已知缺陷**，以 `xfail(strict=True)` 記錄，等同一份可執行的待修清單：
+另有 8 個需要真實金鑰的整合測試（`tests/integration/`），會產生費用，預設不執行：
+
+```bash
+pytest -m network tests/integration/
+```
+
+單元測試中有 29 個是**已知缺陷**，以 `xfail(strict=True)` 記錄，等同一份可執行的待修清單：
 
 ```bash
 pytest -m known_bug -q          # 列出所有已知缺陷

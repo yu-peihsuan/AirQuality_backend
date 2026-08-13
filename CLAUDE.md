@@ -20,7 +20,13 @@ pytest tests/test_rag_engine.py::test_hybrid_puts_the_matching_aqi_level_first  
 pytest -m known_bug -q                # 只列已知缺陷
 pytest -m known_bug --runxfail        # 看已知缺陷實際失敗在哪一行
 TZ=UTC pytest -q                      # 以正式環境時區執行（CI 會跑這個）
+pytest -m network tests/integration/  # 需真實金鑰、會產生費用，預設不跑
 ```
+
+`scripts/` 下是會影響真實使用者或產生費用的手動工具，**不是測試**：
+`send_test_push.py`（對真實裝置發推播）、`rag_smoke.py`（重建知識庫 + 呼叫 LLM）。
+兩者的檔名與函式名都不得以 `test_` 開頭，由 `tests/test_repo_hygiene.py` 強制——
+它們原本叫 `test_fcm.py` / `test_rag.py` 放在根目錄，會被 pytest 收集後真的執行。
 
 ```bash
 uvicorn main:app --reload --port 8000            # 本機開發

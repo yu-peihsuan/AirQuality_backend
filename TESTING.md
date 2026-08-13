@@ -8,7 +8,7 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
-目前：**360 個測試（333 通過 / 27 已知缺陷），約 2 秒跑完。**
+目前：**384 個測試 —— 347 通過 / 29 已知缺陷 / 8 個需真實 API 的整合測試（預設不跑），約 2 秒跑完。**
 
 ---
 
@@ -22,7 +22,37 @@ pytest -q
   `get/post/put/delete/request/head` 與 `Session.request` 全部換成會 assert 失敗的替身。
   測試若不小心打真實 API 會立刻紅燈，而不是變慢或間歇性失敗。
 - **不呼叫 LLM**：`rag_engine` 與 `llm_structurer` 的 OpenAI client 以替身注入。
+- **不發推播**：`fcm_sender` 的 `firebase_admin.messaging` 以替身注入。
 - **不裝 chromadb**：見下方「為什麼 requirements-dev.txt 不引用 requirements.txt」。
+
+### 1b. 測試與手動腳本必須分開
+
+`tests/` 底下是自動化測試；`scripts/` 底下是需要真實憑證、會產生費用或
+會影響真實使用者的 operational tooling。**scripts/ 的檔名與函式名都不得以
+`test_` 開頭**，由 `tests/test_repo_hygiene.py` 強制。
+
+這條規則來自實際踩過的坑：repo 根目錄原本有 `test_fcm.py` 與 `test_rag.py`
+兩支手動腳本，名稱符合 pytest 的收集規則，於是
+
+- `test_fcm.py::test_multicast_push` 無參數，**會被實際執行，對所有已註冊的
+  真實裝置發出推播**
+- `test_rag.py` 的程式碼寫在模組層，pytest 在**收集階段**就會執行 ——
+  連 `--collect-only` 都會重建向量知識庫並呼叫 LLM
+- `tests/conftest.py` 的 HTTP 攔截對它們**完全無效**（conftest 只作用於
+  所在目錄以下）
+
+當時唯一的防線是 `testpaths = tests`，但 `pytest .`、`pytest test_fcm.py`、
+IDE 的「執行全部測試」都會繞過它。兩支腳本已移到 `scripts/` 並更名為
+`send_test_push.py` 與 `rag_smoke.py`。
+
+### 1c. 需要真實 API 的測試掛 `network`
+
+`tests/integration/` 底下的測試需要真實金鑰且會產生費用，
+因此 `pytest.ini` 的 `addopts` 帶 `-m "not network"` 讓它們預設不執行，CI 也不跑：
+
+```bash
+pytest -m network tests/integration/   # 明確指定才會跑
+```
 
 ### 2. 測試之間不共用狀態
 
@@ -89,7 +119,7 @@ def test_rate_limit_window_is_correct_under_utc_timezone(reports_db, tz):
 
 ---
 
-## 目前的 27 個已知缺陷
+## 目前的 29 個已知缺陷
 
 ```bash
 pytest -m known_bug -q          # 列出清單
@@ -103,6 +133,8 @@ pytest -m known_bug --runxfail  # 看實際失敗位置
 | 推播 | 「臺／台」未在寫入時正規化，臺北／臺中／臺南／臺東的擴散推播查無裝置 | `test_token_store.py` |
 | 推播 | token 更新時 county 與 conditions 被空字串覆寫（App 的 `onNewToken` 會這樣呼叫） | `test_token_store.py` |
 | 推播 | 沒有移除 token 的介面，FCM 回報失效的 token 永久累積 | `test_token_store.py` |
+| 推播 | `send_multicast` 未分批，裝置數超過 FCM 的 500 則上限時整批失敗 | `test_fcm_sender.py` |
+| 推播 | 只取 `success_count`/`failure_count`，丟掉逐則失敗原因，無從得知該清哪些 token | `test_fcm_sender.py` |
 | 併發 | token 檔為無鎖的整檔讀改寫，併發註冊會 lost update | `test_token_store.py` |
 | 地區判讀 | 「新市區」經 `rstrip` 縮成「新」，含「新聞」「最新」「創新」的標題全被誤判為台南市 | `test_region_extraction.py` |
 | 地區判讀 | 縣治與縣同名時蓋掉真正的鄉鎮，輸出「南投縣南投」 | `test_region_extraction.py` |
@@ -212,7 +244,6 @@ monkeypatch.setattr(weather_mod, "fetch_weather_for_county", _stub)
 
 寫測試時值得知道哪裡還是空白：
 
-- **`fcm/fcm_sender.py`**：完全沒有測試（需要 mock `firebase_admin`）
 - **`db/firestore_reports.py`**：沒有測試（該模組目前也未被接上）
 - **爬蟲的網路層**：`fetch_pts_news` / `fetch_yahoo_news` / `fetch_google_news`
   只測了過濾邏輯，RSS 解析與 HTML 清理未覆蓋
