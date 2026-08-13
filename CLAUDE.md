@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 對應的 Android App 在姊妹 repo `AirQualityApp`——兩者的資料契約沒有共用定義檔，
 改動 API 欄位時必須同步檢查 App 端的 `AirQualityApi.kt` 與各 `*Response` data class。
 
+> **要修缺陷或做重構，先讀 [`docs/ROADMAP.md`](docs/ROADMAP.md)。**
+> 那份文件列出全部 29 個已確認缺陷的根因（含 file:line）、修法、
+> 對應的驗證測試與陷阱，設計成不需要前後文就能接手。
+> 本文件負責「這個 repo 怎麼運作」，ROADMAP 負責「接下來要做什麼、怎麼做」。
+
 ---
 
 ## 常用指令

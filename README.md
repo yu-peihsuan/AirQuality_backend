@@ -279,6 +279,8 @@ CI 會把覆蓋率表格寫進 GitHub Actions 的執行摘要頁，並保留 HTM
 測試設計原則、覆蓋率現況與解讀、缺陷清單、撰寫新測試的規範，
 詳見 **[TESTING.md](TESTING.md)**。
 
+已知缺陷的根因、修法與優先順序，詳見 **[docs/ROADMAP.md](docs/ROADMAP.md)**。
+
 ---
 
 ## 分析工具（analysis/）

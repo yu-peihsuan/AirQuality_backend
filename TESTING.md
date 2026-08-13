@@ -126,6 +126,9 @@ pytest -m known_bug -q          # 列出清單
 pytest -m known_bug --runxfail  # 看實際失敗位置
 ```
 
+> **每個缺陷的根因（含 file:line）、修法與驗證步驟，見
+> [`docs/ROADMAP.md`](docs/ROADMAP.md)。** 下表只列「是什麼」，ROADMAP 講「怎麼修」。
+
 | 分類 | 缺陷 | 檔案 |
 |---|---|---|
 | 時區 | 寫入用 UTC+8、查詢用行程時區，所有時間窗在 Cloud Run 上放大 8 小時（限流 3 分→8 小時、去重 6→14 小時、查詢 24→32 小時） | `test_timezone_contract.py` |
