@@ -12,8 +12,11 @@ venv/
 env/
 .env/
 
-# Docker
-.dockerignore
+# 測試產生的暫存檔
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
 
 # 爬蟲與民眾回報產生的資料檔案
 crawler/scraped_news.json

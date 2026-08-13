@@ -246,6 +246,57 @@ POST `/api/fcm/push` 請求格式：
 
 ---
 
+## 測試
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+單元測試不需要 chromadb、不打任何外部 API、不呼叫 LLM、不發送推播，
+整套約 2 秒跑完（`tests/conftest.py` 會攔截所有 `requests` 對外呼叫，
+並在 chromadb 缺席時注入替身）。
+
+### 時區
+
+正式環境（Cloud Run）的 TZ 是 **UTC**，開發機通常是 **Asia/Taipei**，
+許多時間相關的缺陷只在前者浮現。CI 會在兩個時區各跑一次完整測試：
+
+```bash
+TZ=UTC pytest -q
+TZ=Asia/Taipei pytest -q
+```
+
+### 已知缺陷的表達方式
+
+已確認但尚未修復的缺陷，一律寫成 `xfail(strict=True)` 並標記 `known_bug`：
+
+```bash
+pytest -m known_bug -q          # 列出所有已知缺陷
+pytest -m known_bug --runxfail  # 看它們實際失敗在哪一行
+```
+
+`strict=True` 的意義是：**缺陷修好後測試會 XPASS，而 XPASS 會讓整個測試套件失敗**，
+強迫回來移除標記。因此這批標記就是待修清單本身，不會隨時間腐爛。
+
+目前共 27 個，涵蓋：
+
+| 範圍 | 缺陷 |
+|------|------|
+| 時區 | 寫入用 UTC+8、查詢用行程時間，所有時間窗在 Cloud Run 上放大 8 小時 |
+| 推播 | 空品預報推播用空品區名稱查縣市 token，從未送出任何一則 |
+| 推播 | 「臺／台」未正規化，四個縣市的擴散推播查無裝置 |
+| 推播 | token 更新時縣市與健康狀況被空字串覆寫；失效 token 無法移除 |
+| 推播 | token 檔為無鎖的整檔讀寫，併發註冊會 lost update |
+| 地區判讀 | 「新市區」被縮成「新」，任何含「新」的標題都誤判為台南市 |
+| 地區判讀 | 縣治與縣同名時蓋掉真正的鄉鎮（「南投縣南投」） |
+| 地區判讀 | 「竹北市」因子字串比對命中「北市」而誤判為台北市 |
+| 熱點分析 | 回報點共線時 KDE 退化，例外被吞掉後靜默回傳空清單 |
+| 健康規則 | AQI 151–200 的等級名稱與官方用語不一致；AQI > 500 無對應規則 |
+| 效能 | `/api/rag_advice` 對同一縣市重複查詢 MOENV；熱點分析未帶入風況 |
+
+---
+
 ## 分析工具（analysis/）
 
 | 腳本 | 用途 |
