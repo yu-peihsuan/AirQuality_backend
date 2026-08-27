@@ -6,7 +6,7 @@ except ImportError:
     pass
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 import requests
 import os
@@ -19,9 +19,14 @@ from rag.llm_structurer import analyze_citizen_report
 from fcm.token_store import (
     register_token, get_tokens_by_county, get_all_tokens,
     set_daily_preference, get_due_daily_tokens, mark_daily_sent, get_token_record,
+    claim_token,
 )
 from fcm.fcm_sender import send_multicast
 from gis.hotspot_analyzer import analyze_hotspots, check_downwind, get_affected_counties, COUNTY_CENTROIDS
+from api.admin import module as admin_router
+from api.auth import module as auth_router
+from core.auth import CallerIdentity, get_caller_identity, verify_admin
+from db.devices_db import init_device_db
 from db.reports_db import (
     init_db, insert_report,
     get_recent_reports, get_all_reports,
@@ -305,9 +310,10 @@ def _daily_summary_push_job():
 # ── Lifespan：啟動時初始化 DB 與知識庫 ───────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. 初始化民眾回報 DB
+    # 1. 初始化民眾回報 DB 與已註冊裝置表
     try:
         init_db()
+        init_device_db()
     except Exception as e:
         print(f"⚠️  DB 初始化失敗：{e}")
 
@@ -339,6 +345,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 def normalize_name(name: str) -> str:
@@ -682,7 +690,7 @@ def get_user_reports(region: str = None):
 
 
 @app.get("/api/user_reports/history")
-def get_user_reports_history():
+def get_user_reports_history(caller: CallerIdentity = Depends(get_caller_identity)):
     """回傳所有歷史民眾回報。"""
     try:
         return {"status": "success", "records": get_all_reports()}
@@ -696,7 +704,8 @@ class ReportRequest(BaseModel):
     description: str
     latitude: float | None = None
     longitude: float | None = None
-    device_id: str | None = None
+    # device_id 不再由客戶端提供：改自 access token 取得（見 submit_report），
+    # 否則呼叫端只要換一個字串就能繞過下方的回報頻率限制。
 
 
 def _cross_verify_report(county: str, event_type: str) -> list[str]:
@@ -750,11 +759,11 @@ def _cross_verify_report(county: str, event_type: str) -> list[str]:
 
 
 @app.post("/api/report")
-def submit_report(req: ReportRequest):
+def submit_report(req: ReportRequest, caller: CallerIdentity = Depends(get_caller_identity)):
     now = datetime.now(timezone(timedelta(hours=8))).replace(tzinfo=None).isoformat()
 
     # ── 回報頻率限制（防灌水／防重複）────────────────────────────────────
-    if req.device_id and count_recent_by_device(req.device_id, minutes=3) >= 1:
+    if count_recent_by_device(caller.device_id, minutes=3) >= 1:
         return {
             "status": "rate_limited",
             "message": "回報太頻繁，請於 3 分鐘後再試。",
@@ -799,7 +808,7 @@ def submit_report(req: ReportRequest):
     verify_sources = _cross_verify_report(county_v, event_type_v)
 
     # 所有回報（確認＆未確認）都存入 SQLite，is_confirmed 欄位區分
-    structured["device_id"] = req.device_id
+    structured["device_id"] = caller.device_id
     structured["verify_sources"] = verify_sources
     insert_report(structured)
 
@@ -911,7 +920,7 @@ def get_news(region: str = None):
 
 
 @app.post("/api/rag_advice")
-def get_rag_advice(req: RagAdviceRequest):
+def get_rag_advice(req: RagAdviceRequest, caller: CallerIdentity = Depends(get_caller_identity)):
     """
     RAG 個人化空氣品質建議端點。
     根據用戶位置、健康檔案，結合當前 AQI/氣象資料與近期污染事件，
@@ -1048,7 +1057,7 @@ class RagExperimentRequest(BaseModel):
 
 
 @app.post("/api/rag_advice/experiment")
-def rag_advice_experiment(req: RagExperimentRequest):
+def rag_advice_experiment(req: RagExperimentRequest, _: None = Depends(verify_admin)):
     """
     檢索策略消融實驗（Ablation Study）端點。
     以受控輸入直接呼叫 RAG 引擎，比較 none/semantic/rule/hybrid 四種檢索策略。
@@ -1199,10 +1208,13 @@ class TokenRegisterRequest(BaseModel):
 
 
 @app.post("/api/fcm/register")
-def register_fcm_token(req: TokenRegisterRequest):
+def register_fcm_token(req: TokenRegisterRequest, caller: CallerIdentity = Depends(get_caller_identity)):
     """App 啟動時上傳裝置 FCM Token、縣市、座標、健康狀況。"""
+    if not claim_token(req.token, caller.device_id):
+        return {"status": "error", "message": "此 Token 已由其他裝置註冊"}
     try:
-        register_token(req.token, req.county, req.lat, req.lng, req.conditions)
+        register_token(req.token, req.county, req.lat, req.lng, req.conditions,
+                       device_id=caller.device_id)
         return {"status": "success", "message": "Token 已註冊"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -1216,10 +1228,13 @@ class DailyNotificationRequest(BaseModel):
 
 
 @app.put("/api/fcm/daily-notification")
-def set_daily_notification(req: DailyNotificationRequest):
+def set_daily_notification(req: DailyNotificationRequest, caller: CallerIdentity = Depends(get_caller_identity)):
     """設定或取消裝置的每日空氣品質摘要通知時間。"""
+    if not claim_token(req.token, caller.device_id):
+        return {"status": "error", "message": "無權變更其他裝置的通知設定"}
     try:
-        set_daily_preference(req.token, req.enabled, req.hour, req.minute)
+        set_daily_preference(req.token, req.enabled, req.hour, req.minute,
+                             device_id=caller.device_id)
         return {"status": "success"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -1230,9 +1245,11 @@ class DailyNotificationTestRequest(BaseModel):
 
 
 @app.post("/api/fcm/daily-notification/test")
-def test_daily_notification(req: DailyNotificationTestRequest):
+def test_daily_notification(req: DailyNotificationTestRequest, caller: CallerIdentity = Depends(get_caller_identity)):
     """測試用：立即推播一次每日摘要，不等排程時間、不佔用當天的正式額度。
     與正式排程同邏輯：有座標用最近測站（與 App 首頁一致），無座標退縣市最高 AQI 站。"""
+    if not claim_token(req.token, caller.device_id):
+        return {"status": "error", "message": "無權對其他裝置發送測試推播"}
     rec = get_token_record(req.token)
     county = (rec or {}).get("county") or ""
     if not county:
@@ -1268,7 +1285,7 @@ class PushRequest(BaseModel):
 
 
 @app.post("/api/fcm/push")
-def push_notification(req: PushRequest):
+def push_notification(req: PushRequest, _: None = Depends(verify_admin)):
     """手動觸發推播（測試用 / 後台管理用）。"""
     try:
         tokens = get_tokens_by_county(req.county) if req.county else get_all_tokens()
@@ -1280,8 +1297,8 @@ def push_notification(req: PushRequest):
         return {"status": "error", "message": str(e)}
 
 
-@app.get("/api/fcm/test")
-def test_push():
+@app.post("/api/fcm/test")
+def test_push(_: None = Depends(verify_admin)):
     """測試推播：發送一則假警報給所有已註冊裝置。"""
     try:
         tokens = get_all_tokens()
@@ -1305,8 +1322,8 @@ def test_push():
         return {"status": "error", "message": str(e)}
 
 
-@app.get("/api/fcm/test_auto")
-def test_auto_push():
+@app.post("/api/fcm/test_auto")
+def test_auto_push(_: None = Depends(verify_admin)):
     """測試自動推播：抓取真實 AQI 資料，對所有有 token 的縣市各推一則實際數據通知。"""
     try:
         API_KEY = os.getenv("MOENV_API_KEY", "")
