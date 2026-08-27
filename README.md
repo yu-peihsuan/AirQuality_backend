@@ -39,6 +39,8 @@ cp .env.example .env
 | `OPENROUTER_API_KEY` | OpenRouter LLM API Key | [openrouter.ai](https://openrouter.ai) |
 | `MAPS_API_KEY` | Google Maps Geocoding API Key | Google Cloud Console |
 | `CWA_API_KEY` | 中央氣象署開放資料 API Key | [opendata.cwa.gov.tw](https://opendata.cwa.gov.tw) |
+| `JWT_SECRET` | 裝置憑證簽章密鑰（見 [API 認證](#api-認證)） | 自行產生隨機字串 |
+| `ADMIN_TOKEN` | 管理端點密鑰 | 自行產生隨機字串 |
 
 > `.env` 已加入 `.gitignore`，請勿上傳至 GitHub。
 
@@ -217,11 +219,11 @@ POST `/api/rag_advice` 請求格式：
 
 ### FCM 推播通知
 
-| 方法 | 端點 | 說明 |
-|------|------|------|
-| POST | `/api/fcm/register` | 裝置上傳 FCM Token |
-| POST | `/api/fcm/push` | 手動推播（指定縣市或全部） |
-| GET | `/api/fcm/test` | 推播測試通知給所有已註冊裝置 |
+| 方法 | 端點 | 說明 | 保護 |
+|------|------|------|------|
+| POST | `/api/fcm/register` | 裝置上傳 FCM Token | 🔑 |
+| POST | `/api/fcm/push` | 手動推播（指定縣市或全部） | 🛡 |
+| POST | `/api/fcm/test` | 推播測試通知給所有已註冊裝置 | 🛡 |
 
 POST `/api/fcm/push` 請求格式：
 ```json
@@ -231,6 +233,78 @@ POST `/api/fcm/push` 請求格式：
   "body": "今日 AQI 超過 150，請注意防護"
 }
 ```
+
+---
+
+## API 認證
+
+### 分層
+
+| 層級 | 保護方式 | 端點 |
+|------|----------|------|
+| 公開 | 無 | 空品、天氣、預報、新聞、火災警示、熱點、24 小時內民眾回報 |
+| 🔑 裝置憑證 | `Authorization: Bearer <access_token>` | `/api/report`、`/api/rag_advice`、`/api/user_reports/history`、`/api/fcm/register`、`/api/fcm/daily-notification`(+`/test`) |
+| 🛡 管理員 | `X-Admin-Token: <ADMIN_TOKEN>` | `/api/fcm/push`、`/api/fcm/test`、`/api/fcm/test_auto`、`/api/rag_advice/experiment` |
+
+公開的是環境部與氣象署的開放資料，本來就對外；需要憑證的是會寫入資料、
+花費 LLM 額度或動到特定裝置設定的端點；管理層是會對全體裝置發送推播、
+或大量觸發 LLM 的操作。
+
+### 裝置匿名憑證
+
+本 App 沒有帳號系統——空氣品質是公用資訊，強制註冊會流失使用者。因此改為
+**裝置匿名註冊**：App 首次啟動時以裝置識別碼換取一組 JWT，之後所有請求帶
+Bearer token。
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| POST | `/api/auth/device` | 裝置註冊，取得 access + refresh token |
+| POST | `/api/auth/refresh` | 以 refresh token 換發新的 access token |
+
+```bash
+# 註冊
+curl -X POST https://<host>/api/auth/device      -H "Content-Type: application/json"      -d '{"device_id": "<ANDROID_ID>"}'
+# → {"status":"success","access_token":"...","refresh_token":"...","expires_in":3600}
+
+# 呼叫受保護端點
+curl -X POST https://<host>/api/report      -H "Authorization: Bearer <access_token>"      -H "Content-Type: application/json"      -d '{"location":"台南市東區","category":"異味","description":"有燒塑膠味"}'
+```
+
+- access token 1 小時、refresh token 30 天
+- 兩者的 `aud` 不同，refresh token 無法當 access token 使用
+- Android 端由 `AuthInterceptor` 自動附加憑證、`TokenAuthenticator` 在 401 時
+  自動續期，畫面層不需要處理 token
+
+**為什麼 device_id 不由客戶端提供給業務端點**：回報頻率限制原本讀取 request
+body 裡的 `device_id`，呼叫端改個字串就能繞過。改為從 token 取出後，識別碼由
+伺服器簽發，客戶端無法逐次請求偽造。
+
+**隱私**：伺服器不儲存原始 ANDROID_ID，收到後先以 `JWT_SECRET` 為 pepper 取
+HMAC-SHA256 並截斷，資料庫與 token 內都只出現這個與硬體無關的代稱。
+
+### 環境變數
+
+| 變數 | 用途 | 未設定時 |
+|------|------|----------|
+| `JWT_SECRET` | JWT 簽章密鑰 | 認證端點一律回 500（fail closed，不使用預設值） |
+| `ADMIN_TOKEN` | 管理端點共用密鑰 | 管理端點一律拒絕 |
+
+產生方式：`python -c "import secrets; print(secrets.token_urlsafe(48))"`
+
+### 已知限制
+
+攻擊者仍可重複呼叫 `/api/auth/device` 取得大量新身分，藉此繞過以裝置為單位的
+頻率限制。要擋住這一層需要裝置證明（Firebase App Check / Play Integrity），
+列為後續工作。
+
+### 測試
+
+```bash
+python test_auth.py
+```
+
+不需 pytest，涵蓋雜湊、註冊、續期、audience 隔離、偽造／過期 token、
+裝置封鎖、管理端點與 fail closed 共 28 項檢查。
 
 ---
 

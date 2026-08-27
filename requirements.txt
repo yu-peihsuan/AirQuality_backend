@@ -11,6 +11,4 @@ python-dotenv
 firebase-admin
 numpy
 scipy
-
-firebase-admin
-
+pyjwt

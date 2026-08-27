@@ -29,8 +29,13 @@ def _haversine(lat1, lng1, lat2, lng2) -> float:
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-def register_token(token: str, county: str = "", lat: float = None, lng: float = None, conditions: str = ""):
-    """新增或更新一筆裝置 token（含座標與健康狀況）。"""
+def register_token(token: str, county: str = "", lat: float = None, lng: float = None,
+                   conditions: str = "", device_id: str = ""):
+    """新增或更新一筆裝置 token（含座標、健康狀況與所屬裝置）。
+
+    device_id 來自 access token，用於確認後續修改通知設定的人就是
+    當初註冊這個 FCM token 的裝置（見 claim_token）。
+    """
     tokens = _load()
     for t in tokens:
         if t["token"] == token:
@@ -38,6 +43,7 @@ def register_token(token: str, county: str = "", lat: float = None, lng: float =
             t["conditions"] = conditions
             if lat is not None: t["lat"] = lat
             if lng is not None: t["lng"] = lng
+            if device_id:       t["device_id"] = device_id
             _save(tokens)
             return
     tokens.append({
@@ -46,8 +52,30 @@ def register_token(token: str, county: str = "", lat: float = None, lng: float =
         "lat":        lat,
         "lng":        lng,
         "conditions": conditions,
+        "device_id":  device_id,
     })
     _save(tokens)
+
+
+def claim_token(token: str, device_id: str) -> bool:
+    """確認 device_id 是否有權操作這個 FCM token，必要時建立歸屬。
+
+    - 尚無此筆紀錄：回 True（後續流程會建立，並在建立時寫入 device_id）
+    - 已有紀錄但無 device_id（認證機制上線前的舊資料）：綁定給呼叫者並回 True
+    - 已有紀錄且 device_id 相符：回 True
+    - 已有紀錄但屬於其他裝置：回 False
+    """
+    tokens = _load()
+    for t in tokens:
+        if t["token"] != token:
+            continue
+        owner = t.get("device_id")
+        if not owner:
+            t["device_id"] = device_id
+            _save(tokens)
+            return True
+        return owner == device_id
+    return True
 
 
 def get_tokens_by_county(county: str) -> list[str]:
@@ -101,7 +129,8 @@ def get_token_record(token: str) -> dict | None:
     return None
 
 
-def set_daily_preference(token: str, enabled: bool, hour: int | None = None, minute: int | None = None):
+def set_daily_preference(token: str, enabled: bool, hour: int | None = None,
+                         minute: int | None = None, device_id: str = ""):
     """設定或取消一筆裝置的每日空氣品質摘要通知時間。"""
     # 配合 get_due_daily_tokens 的 catch-up 語意（時間已過即發）：
     # 若設定的時間「今天已經過了」，標記今天已發，避免一設定就立刻收到通知；
@@ -128,6 +157,7 @@ def set_daily_preference(token: str, enabled: bool, hour: int | None = None, min
         "lat":             None,
         "lng":             None,
         "conditions":      "",
+        "device_id":       device_id,
         "daily_enabled":   enabled,
         "daily_hour":      hour,
         "daily_minute":    minute,
