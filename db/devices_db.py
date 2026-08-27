@@ -60,10 +60,52 @@ def is_active(device_id: str) -> bool:
     return row is not None and not row["revoked"]
 
 
-def revoke_device(device_id: str):
-    """封鎖裝置：既有 refresh token 立即失效，access token 於過期後失效。"""
+def is_revoked(device_id: str) -> bool:
+    """裝置是否已被明確封鎖。
+
+    查無紀錄一律回 False。理由同 is_active 的說明：容器重啟後這張表會清空，
+    此時若把「查不到」視為封鎖，等於一次擋掉所有持有有效憑證的使用者。
+    """
     with _get_conn() as conn:
-        conn.execute(
+        row = conn.execute(
+            "SELECT revoked FROM devices WHERE device_id = ?", (device_id,)
+        ).fetchone()
+    return row is not None and bool(row["revoked"])
+
+
+def revoke_device(device_id: str) -> bool:
+    """封鎖裝置。回傳是否真的有這筆紀錄可封鎖。"""
+    with _get_conn() as conn:
+        cur = conn.execute(
             "UPDATE devices SET revoked = 1 WHERE device_id = ?", (device_id,)
         )
         conn.commit()
+        return cur.rowcount > 0
+
+
+def restore_device(device_id: str) -> bool:
+    """解除封鎖。回傳是否真的有這筆紀錄可解除。"""
+    with _get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE devices SET revoked = 0 WHERE device_id = ?", (device_id,)
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def list_devices() -> list[dict]:
+    """列出所有已註冊裝置，最近使用的排前面。"""
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT device_id, created, last_seen, revoked FROM devices "
+            "ORDER BY last_seen DESC"
+        ).fetchall()
+    return [
+        {
+            "device_id": r["device_id"],
+            "created": r["created"],
+            "last_seen": r["last_seen"],
+            "revoked": bool(r["revoked"]),
+        }
+        for r in rows
+    ]

@@ -1,8 +1,24 @@
-import json
+"""
+manual_fcm_push.py — 手動發送 FCM 推播的維運腳本
+執行方式：python scripts/manual_fcm_push.py
+
+刻意不叫 test_*.py：這支會對「所有真實裝置」發出推播，若被 pytest
+當成測試自動執行，就會直接騷擾到全部使用者。它是維運工具，不是測試。
+
+一般情況請改用受管理密鑰保護的 POST /api/fcm/push 端點。
+"""
+
+import os
+import sys
+
+# 讓腳本無論從哪個目錄執行都能匯入專案模組
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
+
 from fcm.fcm_sender import send_notification, send_multicast
 from fcm.token_store import get_all_tokens
 
-def test_single_push(token: str):
+def push_to_single_device(token: str):
     print(f"嘗試發送單一推播至 Token: {token[:20]}...")
     success = send_notification(
         token=token,
@@ -15,7 +31,7 @@ def test_single_push(token: str):
     else:
         print("❌ 單一推播發送失敗！")
 
-def test_multicast_push():
+def push_to_all_devices():
     print("嘗試發送批次推播給所有已註冊的裝置...")
     # 假設 token_store.json 有儲存
     tokens = get_all_tokens()
@@ -40,9 +56,9 @@ if __name__ == "__main__":
     choice = input("請選擇測試方式 (1 或 2): ")
     
     if choice == "1":
-        test_multicast_push()
+        push_to_all_devices()
     elif choice == "2":
         token = input("請輸入裝置的 FCM Token: ")
-        test_single_push(token)
+        push_to_single_device(token)
     else:
         print("無效的選擇")

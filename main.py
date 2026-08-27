@@ -23,6 +23,7 @@ from fcm.token_store import (
 )
 from fcm.fcm_sender import send_multicast
 from gis.hotspot_analyzer import analyze_hotspots, check_downwind, get_affected_counties, COUNTY_CENTROIDS
+from api.admin import module as admin_router
 from api.auth import module as auth_router
 from core.auth import CallerIdentity, get_caller_identity, verify_admin
 from db.devices_db import init_device_db
@@ -345,6 +346,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 def normalize_name(name: str) -> str:

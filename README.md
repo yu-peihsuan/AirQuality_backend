@@ -244,7 +244,7 @@ POST `/api/fcm/push` 請求格式：
 |------|----------|------|
 | 公開 | 無 | 空品、天氣、預報、新聞、火災警示、熱點、24 小時內民眾回報 |
 | 🔑 裝置憑證 | `Authorization: Bearer <access_token>` | `/api/report`、`/api/rag_advice`、`/api/user_reports/history`、`/api/fcm/register`、`/api/fcm/daily-notification`(+`/test`) |
-| 🛡 管理員 | `X-Admin-Token: <ADMIN_TOKEN>` | `/api/fcm/push`、`/api/fcm/test`、`/api/fcm/test_auto`、`/api/rag_advice/experiment` |
+| 🛡 管理員 | `X-Admin-Token: <ADMIN_TOKEN>` | `/api/fcm/push`、`/api/fcm/test`、`/api/fcm/test_auto`、`/api/rag_advice/experiment`、`/api/admin/*` |
 
 公開的是環境部與氣象署的開放資料，本來就對外；需要憑證的是會寫入資料、
 花費 LLM 額度或動到特定裝置設定的端點；管理層是會對全體裝置發送推播、
@@ -282,6 +282,34 @@ body 裡的 `device_id`，呼叫端改個字串就能繞過。改為從 token �
 **隱私**：伺服器不儲存原始 ANDROID_ID，收到後先以 `JWT_SECRET` 為 pepper 取
 HMAC-SHA256 並截斷，資料庫與 token 內都只出現這個與硬體無關的代稱。
 
+
+### 管理端點：裝置檢視與封鎖
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/api/admin/devices?hours=24` | 列出已註冊裝置，依近期回報數由多到少排序 |
+| POST | `/api/admin/devices/{device_id}/revoke` | 封鎖裝置 |
+| POST | `/api/admin/devices/{device_id}/restore` | 解除封鎖 |
+
+```bash
+export ADMIN_TOKEN="..." API="https://<host>"
+
+# 找出灌水來源：recent_reports 最高的排最前面
+curl "$API/api/admin/devices" -H "X-Admin-Token: $ADMIN_TOKEN"
+
+# 封鎖
+curl -X POST "$API/api/admin/devices/<device_id>/revoke" -H "X-Admin-Token: $ADMIN_TOKEN"
+```
+
+封鎖**立即生效**：受保護端點每次都會檢查封鎖狀態，被封鎖的裝置拿到 403，
+也無法再續期。封鎖狀態查詢失敗時刻意 fail open（放行）——token 簽章本身有效，
+不應讓一個罕用的管理功能變成全服務的故障點。
+
+封鎖擋的是「這個身分」而非那台實體裝置：對方重新註冊會取得新的代稱。這是匿名
+憑證的固有限制，真正的裝置級封鎖同樣需要 Firebase App Check。
+
+`device_id` 是雜湊後的代稱，無法反推回實際裝置，但足以對應同一台裝置的行為。
+
 ### 環境變數
 
 | 變數 | 用途 | 未設定時 |
@@ -304,7 +332,7 @@ python test_auth.py
 ```
 
 不需 pytest，涵蓋雜湊、註冊、續期、audience 隔離、偽造／過期 token、
-裝置封鎖、管理端點與 fail closed 共 28 項檢查。
+裝置封鎖與解除、管理端點與 fail closed 共 41 項檢查。
 
 ---
 

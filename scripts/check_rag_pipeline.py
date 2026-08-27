@@ -1,13 +1,23 @@
 """
-test_rag.py — RAG 管道測試腳本
-執行方式：python test_rag.py
+check_rag_pipeline.py — RAG 管道驗證腳本
+執行方式：python scripts/check_rag_pipeline.py
+
+刻意不叫 test_*.py：這支的邏輯寫在模組層級，pytest 光是 import 就會整支
+執行——重建知識庫並打一輪 LLM，會實際產生 OpenRouter 費用。
+
+自動化測試請看 test_auth.py。
 """
-import sys
 import json
+import os
+import sys
+
+# 讓腳本無論從哪個目錄執行都能匯入專案模組
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
+
 from dotenv import load_dotenv
 
-load_dotenv(".env")
-sys.path.insert(0, ".")
+load_dotenv(os.path.join(_ROOT, ".env"))
 
 # ─── 測試 1：知識庫建立 ─────────────────────────────────────────────────────
 print("=" * 50)

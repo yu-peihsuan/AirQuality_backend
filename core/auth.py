@@ -45,6 +45,7 @@ from fastapi import Header, HTTPException, status
 from pydantic import BaseModel
 
 from core.config import Config, Limit, TokenAudience
+from db.devices_db import is_revoked
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +185,23 @@ async def get_caller_identity(
             detail="Unauthenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # 封鎖檢查。放在這裡（而非只在續期時檢查）封鎖才會即刻生效，
+    # 否則被封鎖的裝置還能用手上未過期的 access token 繼續操作最多一小時。
+    #
+    # 刻意 fail open：查詢失敗時放行。token 簽章本身是有效的，若因為資料庫
+    # 暫時讀不到就擋下所有請求，等於把一個罕用的管理功能變成全服務的故障點。
+    try:
+        if is_revoked(device_id):
+            logger.warning(f"已封鎖的裝置嘗試存取：{device_id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Device revoked",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"封鎖狀態查詢失敗，暫予放行：{e}")
 
     return CallerIdentity(device_id=device_id)
 
