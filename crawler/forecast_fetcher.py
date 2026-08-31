@@ -1,6 +1,7 @@
 import os
 import requests
-from datetime import datetime
+
+from core.timeutil import today_str
 
 FORECAST_URL = "https://data.moenv.gov.tw/api/v2/AQF_P_01"
 
@@ -61,7 +62,7 @@ def fetch_latest_forecast(county: str = None) -> list[dict]:
     if not api_key:
         print("⚠️  MOENV_API_KEY 未設定，跳過空品預報")
         return []
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = today_str()
     try:
         resp = requests.get(
             FORECAST_URL,

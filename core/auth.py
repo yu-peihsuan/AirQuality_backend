@@ -87,7 +87,12 @@ def hash_device_id(raw_device_id: str) -> str:
 # ── 簽發 ─────────────────────────────────────────────────────────────────────
 
 def generate_tokens(device_id: str, gen_refresh: bool = True) -> dict:
-    """為指定裝置代稱簽發 access token（可選 refresh token）。"""
+    """為指定裝置代稱簽發 access token（可選 refresh token）。
+
+    時間刻意使用 UTC epoch 秒數（time.time()），不走 core/timeutil 的台灣時間。
+    JWT 規格明定 iat／exp 是 UTC epoch，PyJWT 驗證時也以 UTC epoch 比對；
+    換成台灣時間會讓效期整整算錯 8 小時。這是全系統唯一不使用台灣時間的地方。
+    """
     secret = _secret()
     now = int(time.time())
 

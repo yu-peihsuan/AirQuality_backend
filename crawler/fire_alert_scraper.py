@@ -3,8 +3,10 @@
 
 import requests
 import feedparser
-from datetime import datetime, timezone, timedelta
+from datetime import timedelta
 from xml.etree import ElementTree as ET
+
+from core.timeutil import now_tw, parse_iso
 
 FIRE_FEED_URL = "https://alerts.ncdr.nat.gov.tw/RssAtomFeed.ashx?AlertType=1087"
 _CAP_NS = "urn:oasis:names:tc:emergency:cap:1.2"
@@ -107,7 +109,7 @@ def fetch_fire_alerts(hours: int = 24) -> list[dict]:
     ]
     """
     results = []
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    cutoff = now_tw() - timedelta(hours=hours)
 
     try:
         resp = requests.get(FIRE_FEED_URL, headers=_HEADERS, timeout=10)
@@ -121,11 +123,11 @@ def fetch_fire_alerts(hours: int = 24) -> list[dict]:
             continue
 
         updated_str = entry.get("updated", "")
-        try:
-            updated = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
-            if updated < cutoff:
-                continue
-        except Exception:
+        # feed 的 updated 帶 +08:00 位移。parse_iso 另外讓「萬一沒帶位移」
+        # 的資料被視為台灣時間，而不是整筆丟掉（原本 naive 與 aware 相比
+        # 會拋 TypeError，被 except 吞掉後該筆警示就消失了）。
+        updated = parse_iso(updated_str)
+        if updated is None or updated < cutoff:
             continue
 
         cap_url = entry.get("link", "")

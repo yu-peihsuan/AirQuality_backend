@@ -4,7 +4,8 @@
 import sqlite3
 import json
 import os
-from datetime import datetime, timedelta
+
+from core.timeutil import cutoff_iso, now_iso
 
 # DB 放在 crawler/ 旁邊，跟 scraped 資料同目錄
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "crawler", "user_reports.db")
@@ -87,8 +88,8 @@ def insert_report(record: dict):
                 se.get("event_type") if se else None,
                 se.get("severity") if se else None,
                 1 if se.get("is_confirmed_pollution_event") else 0,
-                record.get("published_at", datetime.now().isoformat()),
-                record.get("timestamp", datetime.now().isoformat()),
+                record.get("published_at", now_iso()),
+                record.get("timestamp", now_iso()),
                 se_json,
                 record.get("device_id"),
                 json.dumps(record.get("verify_sources") or [], ensure_ascii=False),
@@ -118,7 +119,7 @@ def count_recent_by_device(device_id: str, minutes: int = 3) -> int:
     """回傳指定裝置最近 N 分鐘內的回報數（頻率限制用）。"""
     if not device_id:
         return 0
-    cutoff = (datetime.now() - timedelta(minutes=minutes)).isoformat()
+    cutoff = cutoff_iso(minutes=minutes)
     with _get_conn() as conn:
         row = conn.execute(
             "SELECT COUNT(*) AS n FROM user_reports WHERE device_id = ? AND timestamp >= ?",
@@ -129,7 +130,7 @@ def count_recent_by_device(device_id: str, minutes: int = 3) -> int:
 
 def exists_similar_recent(region: str, category: str, summary: str, hours: int = 6) -> bool:
     """檢查最近 N 小時內是否已有相同地點＋類型＋內容的回報（重複攔截用）。"""
-    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    cutoff = cutoff_iso(hours=hours)
     with _get_conn() as conn:
         row = conn.execute(
             "SELECT COUNT(*) AS n FROM user_reports "
@@ -141,7 +142,7 @@ def exists_similar_recent(region: str, category: str, summary: str, hours: int =
 
 def get_recent_reports(hours: int = 24) -> list[dict]:
     """回傳最近 N 小時的全部回報（含未確認）。"""
-    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    cutoff = cutoff_iso(hours=hours)
     with _get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM user_reports WHERE timestamp >= ? ORDER BY timestamp DESC",
@@ -152,7 +153,7 @@ def get_recent_reports(hours: int = 24) -> list[dict]:
 
 def get_recent_reports_by_region(region: str, hours: int = 24) -> list[dict]:
     """回傳最近 N 小時、指定地區的所有回報。"""
-    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    cutoff = cutoff_iso(hours=hours)
     with _get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM user_reports WHERE timestamp >= ? AND region LIKE ? ORDER BY timestamp DESC",
@@ -172,7 +173,7 @@ def get_all_reports() -> list[dict]:
 
 def get_confirmed_reports(hours: int = 24) -> list[dict]:
     """回傳近 N 小時已確認污染事件（供熱點分析用）。"""
-    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    cutoff = cutoff_iso(hours=hours)
     with _get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM user_reports WHERE is_confirmed = 1 AND timestamp >= ? ORDER BY timestamp DESC",
@@ -183,7 +184,7 @@ def get_confirmed_reports(hours: int = 24) -> list[dict]:
 
 def get_recent_confirmed_by_county(county: str, hours: int = 24) -> list[dict]:
     """回傳近 N 小時、指定縣市的確認回報（供 RAG 事件描述用）。"""
-    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    cutoff = cutoff_iso(hours=hours)
     with _get_conn() as conn:
         rows = conn.execute(
             """

@@ -1,10 +1,17 @@
 import feedparser
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
+from datetime import timedelta
 import json
 import os
+import sys
 import sqlite3
+
+# 本檔可能被單獨執行（python crawler/news_scraper.py），此時 sys.path[0] 是
+# crawler/ 而非專案根目錄，專案內的模組會匯入失敗。補上根目錄。
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from core.timeutil import cutoff_iso, log_ts, now_iso, now_tw, parse_iso, to_tw
 
 # LLM 語意結構化（OpenRouter OPENAI_API_KEY 需設定）
 try:
@@ -84,23 +91,20 @@ def is_within_retention(published_str):
     """檢查新聞發布時間是否在保留期限內（預設 24 小時）"""
     if not published_str:
         return False
+    limit = timedelta(hours=NEWS_RETENTION_HOURS)
     try:
+        # RSS 的 RFC 2822 格式（帶時區）。
+        # 修正前這裡是 parsed.replace(tzinfo=None)——直接剝掉時區卻沒做換算，
+        # 台灣來源的 +08:00 被當成 UTC，保留期實際上被放大成 32 小時。
         import email.utils
-        parsed = email.utils.parsedate_to_datetime(published_str)
-        pub_dt = parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
-        now = datetime.utcnow()
-        return (now - pub_dt) <= timedelta(hours=NEWS_RETENTION_HOURS)
+        return (now_tw() - to_tw(email.utils.parsedate_to_datetime(published_str))) <= limit
     except Exception:
         pass
-    try:
-        cleaned = published_str.replace("Z", "+00:00")
-        from datetime import timezone
-        parsed = datetime.fromisoformat(cleaned)
-        pub_dt = parsed.astimezone(timezone.utc).replace(tzinfo=None)
-        return (datetime.utcnow() - pub_dt) <= timedelta(hours=NEWS_RETENTION_HOURS)
-    except Exception as e:
-        print(f"時間解析失敗，略過此筆: {published_str} | {e}")
+    parsed = parse_iso(published_str)
+    if parsed is None:
+        print(f"時間解析失敗，略過此筆: {published_str}")
         return False
+    return (now_tw() - parsed) <= limit
 
 # 從 CityCountyData.json 動態載入 DISTRICTS
 # JSON 結構: [{"CityName": "臺北市", "AreaList": [{"AreaName": "中正區"}, ...]}, ...]
@@ -260,7 +264,7 @@ def fetch_pts_news():
     # 公視新聞的 RSS 網址 (社會版面，較常有災情)
     rss_url = "https://news.pts.org.tw/xml/newsfeed.xml"
     
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 開始檢查公視 RSS 最新新聞...")
+    print(f"[{log_ts()}] 🔍 開始檢查公視 RSS 最新新聞...")
     feed = feedparser.parse(rss_url)
     
     extracted_data = []
@@ -296,7 +300,7 @@ def fetch_pts_news():
                 "summary": summary,
                 "url": link,
                 "published_at": published,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": now_iso()
             }
             extracted_data.append(document)
             
@@ -307,7 +311,7 @@ def fetch_yahoo_news():
     # Yahoo 社會新聞 RSS
     rss_url = "https://tw.news.yahoo.com/rss/society"
     
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 開始檢查 Yahoo RSS 最新新聞...")
+    print(f"[{log_ts()}] 🔍 開始檢查 Yahoo RSS 最新新聞...")
     try:
         # 有些 RSS 伺服器會阻擋預設的 User-Agent，我們模擬瀏覽器
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
@@ -348,7 +352,7 @@ def fetch_yahoo_news():
                     "summary": clean_summary.strip(),
                     "url": link,
                     "published_at": published, # Yahoo format e.g., "Wed, 11 Mar 2026..."
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": now_iso()
                 }
                 extracted_data.append(document)
                 
@@ -363,7 +367,7 @@ def fetch_google_news():
     query = "+OR+".join(KEYWORDS)
     rss_url = f"https://news.google.com/rss/search?q={query}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
     
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 開始使用 Google News 關鍵字搜尋...")
+    print(f"[{log_ts()}] 🔍 開始使用 Google News 關鍵字搜尋...")
     try:
         response = requests.get(rss_url)
         feed = feedparser.parse(response.content)
@@ -407,7 +411,7 @@ def fetch_google_news():
                 "summary": "",  # Google rss 的 summary 是 html 的連結區塊，用處不大，先留空
                 "url": link,
                 "published_at": published, # e.g., "Mon, 09 Mar 2026 12:00:00 GMT"
-                "timestamp": datetime.now().isoformat()
+                "timestamp": now_iso()
             }
             extracted_data.append(document)
             
@@ -468,7 +472,7 @@ def save_to_db(news_list):
 def cleanup_old_news():
     """刪除資料庫中超過保留期限的新聞"""
     conn = sqlite3.connect(DB_PATH)
-    cutoff = (datetime.utcnow() - timedelta(hours=NEWS_RETENTION_HOURS)).isoformat()
+    cutoff = cutoff_iso(hours=NEWS_RETENTION_HOURS)
     cursor = conn.execute("DELETE FROM news WHERE timestamp < ?", (cutoff,))
     deleted = cursor.rowcount
     conn.commit()

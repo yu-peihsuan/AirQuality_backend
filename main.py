@@ -13,7 +13,7 @@ import os
 import math
 import urllib3
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from rag.llm_structurer import analyze_citizen_report
 from fcm.token_store import (
@@ -26,6 +26,7 @@ from gis.hotspot_analyzer import analyze_hotspots, check_downwind, get_affected_
 from api.admin import module as admin_router
 from api.auth import module as auth_router
 from core.auth import CallerIdentity, get_caller_identity, verify_admin
+from core.timeutil import TW, log_ts, now_iso, now_tw, parse_iso, today_str
 from db.devices_db import init_device_db
 from db.reports_db import (
     init_db, insert_report,
@@ -45,7 +46,7 @@ from rag.rag_engine import generate_advice
 # ── 新聞爬蟲排程任務 ─────────────────────────────────────────────────────────
 def _scraper_job():
     """每 1 小時執行一次：爬取新聞、存入 DB、清除過期資料、更新 JSON。"""
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 排程爬蟲啟動...")
+    print(f"[{log_ts()}] ⏰ 排程爬蟲啟動...")
     try:
         from crawler.news_scraper import run_scraper, init_db as news_init_db, save_to_db, cleanup_old_news
         import json, os
@@ -56,7 +57,7 @@ def _scraper_job():
         output_path = os.path.join(os.path.dirname(__file__), "crawler", "scraped_news.json")
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=4)
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✅ 排程爬蟲完成，共 {len(results)} 筆")
+        print(f"[{log_ts()}] ✅ 排程爬蟲完成，共 {len(results)} 筆")
     except Exception as e:
         print(f"⚠️  排程爬蟲失敗：{e}")
 
@@ -70,13 +71,13 @@ _forecast_pushed_date: str = ""
 def _forecast_push_job():
     """每 2 小時執行：若明天空品惡化（AQI ≥ 101）且當天尚未推播，則立即推播。"""
     global _forecast_pushed, _forecast_pushed_date
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = today_str()
     # 跨日重置已推播記錄
     if _forecast_pushed_date != today:
         _forecast_pushed = set()
         _forecast_pushed_date = today
 
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 空品預報推播排程啟動...")
+    print(f"[{log_ts()}] ⏰ 空品預報推播排程啟動...")
     try:
         from crawler.forecast_fetcher import fetch_worsening_forecasts
         worsening = fetch_worsening_forecasts()
@@ -117,7 +118,7 @@ _fire_pushed: set[str] = set()  # 已推播過的 alert ID
 def _fire_alert_push_job():
     """每 10 分鐘：有新重大火災警示就推播給受影響縣市。"""
     global _fire_pushed
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ 火災警示推播排程啟動...")
+    print(f"[{log_ts()}] ⏰ 火災警示推播排程啟動...")
     try:
         from crawler.fire_alert_scraper import fetch_fire_alerts
         alerts = fetch_fire_alerts(hours=2)
@@ -155,7 +156,7 @@ _aqi_cache_ts: datetime | None = None  # 快取建立時間
 
 def _aqi_alert_push_job():
     """每 30 分鐘：AQI ≥ 151 推全體；AQI 101-150 推敏感族群。"""
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⏰ AQI 超標推播排程啟動...")
+    print(f"[{log_ts()}] ⏰ AQI 超標推播排程啟動...")
     try:
         API_KEY = os.getenv("MOENV_API_KEY", "")
         url = (f"https://data.moenv.gov.tw/api/v2/aqx_p_432"
@@ -262,9 +263,9 @@ def _county_best_from(stations: list[dict]) -> dict[str, dict]:
 
 def _daily_summary_push_job():
     """每分鐘檢查一次：有裝置設定的每日通知時間到了，就推播當地 AQI 摘要（每裝置每天最多推一次）。"""
-    # 使用台灣時間（UTC+8）：使用者於 App 設定的是本地時間，
-    # 而 Cloud Run 伺服器預設為 UTC，若用 datetime.now() 會差 8 小時而永遠對不上。
-    now = datetime.now(timezone(timedelta(hours=8)))
+    # 使用台灣時間（UTC+8）：使用者於 App 設定的是本地時間。
+    # 全系統的時間基準統一由 core/timeutil 提供，見該模組的說明。
+    now = now_tw()
     today = now.strftime("%Y-%m-%d")
     due = get_due_daily_tokens(now.hour, now.minute, today)
     if not due:
@@ -325,13 +326,15 @@ async def lifespan(app: FastAPI):
         print(f"⚠️  知識庫初始化失敗（服務仍可使用，但 RAG 功能受限）：{e}")
 
     # 3. 啟動新聞爬蟲排程（每 1 小時，啟動時立刻執行一次）
-    from datetime import datetime as _dt
-    scheduler = BackgroundScheduler()
+    # 明確指定台灣時區：APScheduler 預設用行程時區，在 Cloud Run（UTC）上
+    # 任何以時刻表達的 cron 都會差 8 小時。目前的 cron 只用 second=0
+    # （每分鐘觸發，不受時區影響），但指定後日後新增排程才不會踩到。
+    scheduler = BackgroundScheduler(timezone=TW)
     scheduler.add_job(_scraper_job, "interval", hours=1, id="news_scraper",
-                      next_run_time=_dt.now())
-    scheduler.add_job(_forecast_push_job,    "interval", minutes=30, id="forecast_push",   next_run_time=_dt.now())
-    scheduler.add_job(_fire_alert_push_job,  "interval", minutes=10, id="fire_alert_push", next_run_time=_dt.now())
-    scheduler.add_job(_aqi_alert_push_job,   "interval", minutes=30, id="aqi_alert_push",  next_run_time=_dt.now())
+                      next_run_time=now_tw())
+    scheduler.add_job(_forecast_push_job,    "interval", minutes=30, id="forecast_push",   next_run_time=now_tw())
+    scheduler.add_job(_fire_alert_push_job,  "interval", minutes=10, id="fire_alert_push", next_run_time=now_tw())
+    scheduler.add_job(_aqi_alert_push_job,   "interval", minutes=30, id="aqi_alert_push",  next_run_time=now_tw())
     # 每日摘要用 cron 對齊每分鐘第 0 秒檢查（interval 會落在啟動時刻的秒數上，
     # 造成最多近一分鐘的延遲）；時間比對本身在 job 內以台灣時間（UTC+8）計算
     scheduler.add_job(_daily_summary_push_job, "cron", second=0, id="daily_summary_push")
@@ -395,7 +398,7 @@ def _fetch_wind_national_from_aqi() -> dict:
             records = records.get("records", [])
         if records:
             _aqi_records_cache = records
-            _aqi_cache_ts = datetime.now()
+            _aqi_cache_ts = now_tw()
         return _extract_wind_from_records(records)
     except Exception as e:
         print(f"AQI 全台風速查詢失敗：{e}")
@@ -466,7 +469,7 @@ def _fetch_aqi_for_county(county: str) -> dict:
         records = data if isinstance(data, list) else data.get("records", [])
         if records:
             _aqi_records_cache = records
-            _aqi_cache_ts = datetime.now()
+            _aqi_cache_ts = now_tw()
         return _best_record_for_county(records, county)
     except Exception as e:
         print(f"AQI 查詢失敗：{e}")
@@ -612,7 +615,7 @@ def get_air_quality(county: str = None):
 
         if records:
             _aqi_records_cache = records
-            _aqi_cache_ts = datetime.now()
+            _aqi_cache_ts = now_tw()
 
         if county:
             norm_county = normalize_name(county)
@@ -631,7 +634,7 @@ def get_air_quality(county: str = None):
             if county:
                 norm_county = normalize_name(county)
                 records = [r for r in records if normalize_name(r.get("county", "")) == norm_county]
-            age_min = int((datetime.now() - _aqi_cache_ts).total_seconds() / 60) if _aqi_cache_ts else 0
+            age_min = int((now_tw() - _aqi_cache_ts).total_seconds() / 60) if _aqi_cache_ts else 0
             print(f"  → 回傳 {age_min} 分鐘前的快取資料（{len(records)} 筆）")
             return {
                 "status": "cached",
@@ -760,7 +763,7 @@ def _cross_verify_report(county: str, event_type: str) -> list[str]:
 
 @app.post("/api/report")
 def submit_report(req: ReportRequest, caller: CallerIdentity = Depends(get_caller_identity)):
-    now = datetime.now(timezone(timedelta(hours=8))).replace(tzinfo=None).isoformat()
+    now = now_iso()
 
     # ── 回報頻率限制（防灌水／防重複）────────────────────────────────────
     if count_recent_by_device(caller.device_id, minutes=3) >= 1:
@@ -876,22 +879,21 @@ def get_news(region: str = None):
             news_data = json.load(f)
 
         # 只保留 48 小時內的新聞
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        cutoff = now_tw() - timedelta(hours=48)
         def is_fresh(n):
             ts = n.get("timestamp") or n.get("published_at", "")
             if not ts:
                 return False
             try:
+                # RSS 的 RFC 2822 格式（帶時區）
                 import email.utils
-                parsed = email.utils.parsedate_to_datetime(ts)
-                return parsed.astimezone(timezone.utc) >= cutoff
+                return email.utils.parsedate_to_datetime(ts).astimezone(TW) >= cutoff
             except Exception:
                 pass
-            try:
-                parsed = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                return parsed.astimezone(timezone.utc) >= cutoff
-            except Exception:
-                return False
+            # ISO 格式。parse_iso 會把不帶位移的舊資料視為台灣時間，
+            # 修正前這裡是交給 astimezone 用行程時區推測（在 Cloud Run 上差 8 小時）。
+            parsed = parse_iso(ts)
+            return parsed is not None and parsed >= cutoff
         news_data = [n for n in news_data if is_fresh(n)]
 
         if region:
