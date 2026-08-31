@@ -19,8 +19,10 @@ from rag.llm_structurer import analyze_citizen_report
 from fcm.token_store import (
     register_token, get_tokens_by_county, get_all_tokens,
     set_daily_preference, get_due_daily_tokens, mark_daily_sent, get_token_record,
-    claim_token,
+    claim_token, effective_alert_threshold, get_records_by_county, set_alert_threshold,
+    DEFAULT_THRESHOLD_GENERAL, THRESHOLD_MAX, THRESHOLD_MIN,
 )
+from rag.health_rules import get_rule_by_aqi
 from fcm.fcm_sender import send_multicast
 from gis.hotspot_analyzer import analyze_hotspots, check_downwind, get_affected_counties, COUNTY_CENTROIDS
 from api.admin import module as admin_router
@@ -168,8 +170,24 @@ def _fire_alert_push_job():
 _aqi_records_cache: list = []       # 最後一次成功取得的全台站點原始資料
 _aqi_cache_ts: datetime | None = None  # 快取建立時間
 
+# AQI 下降多少才把「上次通知點」跟著調低。沒有這個緩衝，測站在門檻上下
+# 幾點的正常跳動（99↔101）會讓門檻設在那附近的使用者被反覆通知。
+_AQI_RESET_HYSTERESIS = 10
+
+
+def _update_prev_aqi(key: str, prev: int, aqi: int):
+    """AQI 下降時更新「上次通知點」，但要跌得夠多才算數（見 _AQI_RESET_HYSTERESIS）。"""
+    if aqi <= prev - _AQI_RESET_HYSTERESIS:
+        push_state_set_int(key, aqi)
+
+
 def _aqi_alert_push_job():
-    """每 30 分鐘：AQI ≥ 151 推全體；AQI 101-150 推敏感族群。"""
+    """每 30 分鐘：AQI 漲過各裝置自訂門檻時推播。
+
+    預設門檻維持修改前的行為（敏感族群 101、其他人 151），使用者可在 App
+    設定更低的值讓自己更早收到；設得比預設高不會延後（見
+    token_store.effective_alert_threshold）。
+    """
     print(f"[{log_ts()}] ⏰ AQI 超標推播排程啟動...")
     try:
         API_KEY = os.getenv("MOENV_API_KEY", "")
@@ -192,33 +210,38 @@ def _aqi_alert_push_job():
                 county_max[county] = aqi
 
         for county, aqi in county_max.items():
-            band_key = f"aqi_band:{county}"
-            prev_band = push_state_get_int(band_key, 0)
+            prev_key = f"aqi_prev:{county}"
+            prev = push_state_get_int(prev_key, 0)
+
+            # AQI 沒有上升：不會有人「剛跨過」門檻，不推播。
+            # 下降時要不要把記錄跟著調低，見 _update_prev_aqi 的說明。
+            if aqi <= prev:
+                _update_prev_aqi(prev_key, prev, aqi)
+                continue
+
+            # 逐台比對各自的門檻：這一輪從 prev 漲到 aqi，只通知門檻
+            # 剛好落在 (prev, aqi] 區間裡的裝置——也就是「這次才跨過」的人。
+            # 已經在更低點被通知過的人不會重複收到。
+            recipients = [
+                t["token"] for t in get_records_by_county(county)
+                if prev < effective_alert_threshold(t) <= aqi
+            ]
+            push_state_set_int(prev_key, aqi)
+            if not recipients:
+                continue
+
+            rule = get_rule_by_aqi(aqi)
+            level = rule["level"] if rule else ""
             if aqi >= 151:
-                band = 2
-                if band <= prev_band:
-                    continue
-                tokens = get_tokens_by_county(county)
                 title = f"🔴 空氣危害｜{county}"
                 body  = f"AQI {aqi}，請盡量待室內"
-            elif aqi >= 101:
-                band = 1
-                if band <= prev_band:
-                    continue
-                from fcm.token_store import get_sensitive_tokens_by_county
-                tokens = get_sensitive_tokens_by_county(county)
-                title = f"⚠️ 空氣警示｜{county}"
-                body  = f"AQI {aqi}，敏感族群注意防護"
             else:
-                if prev_band:
-                    push_state_set_int(band_key, 0)
-                continue
-            if not tokens:
-                continue
+                title = f"⚠️ 空氣警示｜{county}"
+                body  = f"AQI {aqi}（{level}），建議減少戶外活動" if level else f"AQI {aqi}，建議減少戶外活動"
             try:
-                send_multicast(tokens, title=title, body=body, data={"type": "aqi", "county": county})
-                push_state_set_int(band_key, band)
-                print(f"  📲 AQI 推播：{county} AQI {aqi} | {len(tokens)} 台裝置")
+                send_multicast(recipients, title=title, body=body,
+                               data={"type": "aqi", "county": county, "aqi": aqi})
+                print(f"  📲 AQI 推播：{county} AQI {aqi} | {len(recipients)} 台裝置")
             except Exception as e:
                 print(f"  ⚠️ AQI 推播失敗：{county} | {e}")
     except Exception as e:
@@ -1263,6 +1286,49 @@ def set_daily_notification(req: DailyNotificationRequest, caller: CallerIdentity
         return {"status": "success"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+class AlertThresholdRequest(BaseModel):
+    token:     str
+    threshold: int | None = None   # None＝回到預設（敏感族群 101、其他人 151）
+
+
+@app.put("/api/fcm/alert-threshold")
+def set_alert_threshold_endpoint(req: AlertThresholdRequest,
+                                 caller: CallerIdentity = Depends(get_caller_identity)):
+    """設定裝置的 AQI 即時警示門檻（AQI 漲過這個值就通知）。
+
+    門檻只能讓使用者比預設更早收到，不會延後——設成 200 的人仍然會在
+    AQI 151 收到原本就該收到的警示。
+    """
+    if not claim_token(req.token, caller.device_id):
+        return {"status": "error", "message": "無權變更其他裝置的通知設定"}
+    if req.threshold is not None and not (THRESHOLD_MIN <= req.threshold <= THRESHOLD_MAX):
+        return {"status": "error",
+                "message": f"門檻需介於 {THRESHOLD_MIN} 到 {THRESHOLD_MAX} 之間"}
+    try:
+        set_alert_threshold(req.token, req.threshold, device_id=caller.device_id)
+        rec = get_token_record(req.token) or {}
+        return {"status": "success", "effective_threshold": effective_alert_threshold(rec)}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/fcm/alert-threshold")
+def get_alert_threshold_endpoint(token: str,
+                                 caller: CallerIdentity = Depends(get_caller_identity)):
+    """查詢裝置目前的門檻設定，供 App 重裝後還原。"""
+    if not claim_token(token, caller.device_id):
+        return {"status": "error", "message": "無權查詢其他裝置的通知設定"}
+    rec = get_token_record(token)
+    if rec is None:
+        return {"status": "success", "threshold": None,
+                "effective_threshold": DEFAULT_THRESHOLD_GENERAL}
+    return {
+        "status": "success",
+        "threshold": rec.get("aqi_threshold"),
+        "effective_threshold": effective_alert_threshold(rec),
+    }
 
 
 class DailyNotificationTestRequest(BaseModel):

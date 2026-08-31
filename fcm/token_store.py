@@ -126,17 +126,77 @@ def get_tokens_by_county(county: str) -> list[str]:
     return [t["token"] for t in _load() if _normalize_county(t.get("county", "")) == norm]
 
 
+# 視為敏感族群的健康狀況關鍵字。提到模組層是因為 AQI 警示門檻的預設值
+# 也要靠它判斷（敏感族群預設 101，一般人 151）。
+_SENSITIVE_CONDITIONS = [
+    "氣喘", "心血管疾病", "懷孕中", "高血壓", "呼吸道疾病", "18歲以下", "65歲以上",
+]
+
+# AQI 即時警示的預設門檻，維持修改前的行為：
+# AQI ≥ 151 推全體、101–150 只推敏感族群。
+DEFAULT_THRESHOLD_GENERAL   = 151
+DEFAULT_THRESHOLD_SENSITIVE = 101
+
+# 使用者可設定的範圍。低於 50 幾乎天天觸發，高於 300 等於沒設定。
+THRESHOLD_MIN = 50
+THRESHOLD_MAX = 300
+
+
+def is_sensitive(record: dict) -> bool:
+    """這台裝置的健康檔案是否屬於敏感族群。"""
+    conditions = record.get("conditions", "") or ""
+    return any(k in conditions for k in _SENSITIVE_CONDITIONS)
+
+
+def effective_alert_threshold(record: dict) -> int:
+    """這台裝置實際生效的 AQI 警示門檻。
+
+    個人設定「疊加」在預設分級之上，只能讓自己更早收到、不能更晚：
+    取個人門檻與預設門檻的較小值。所以使用者把門檻設成 200 時，
+    仍然會在 151 收到原本就該收到的那則警示。
+    """
+    default = DEFAULT_THRESHOLD_SENSITIVE if is_sensitive(record) else DEFAULT_THRESHOLD_GENERAL
+    personal = record.get("aqi_threshold")
+    if personal is None:
+        return default
+    try:
+        return min(int(personal), default)
+    except (TypeError, ValueError):
+        return default
+
+
+def get_records_by_county(county: str) -> list[dict]:
+    """取得指定縣市的完整裝置紀錄（AQI 警示要逐台比對門檻，只有 token 不夠）。"""
+    norm = _normalize_county(county)
+    return [t for t in _load() if _normalize_county(t.get("county", "")) == norm]
+
+
 def get_sensitive_tokens_by_county(county: str) -> list[str]:
     """取得指定縣市且有敏感健康狀況的 token。"""
-    _SENSITIVE = ["氣喘", "心血管疾病", "懷孕中", "高血壓", "呼吸道疾病", "18歲以下", "65歲以上"]
-    norm = _normalize_county(county)
-    result = []
-    for t in _load():
-        if _normalize_county(t.get("county", "")) != norm:
-            continue
-        if any(k in t.get("conditions", "") for k in _SENSITIVE):
-            result.append(t["token"])
-    return result
+    return [t["token"] for t in get_records_by_county(county) if is_sensitive(t)]
+
+
+def set_alert_threshold(token: str, threshold: int | None, device_id: str = ""):
+    """設定或清除一台裝置的 AQI 警示門檻。threshold=None 代表回到預設值。"""
+    if threshold is not None:
+        threshold = max(THRESHOLD_MIN, min(THRESHOLD_MAX, int(threshold)))
+    with _lock:
+        tokens = _load()
+        for t in tokens:
+            if t["token"] == token:
+                t["aqi_threshold"] = threshold
+                _save(tokens)
+                return
+        tokens.append({
+            "token":         token,
+            "county":        "",
+            "lat":           None,
+            "lng":           None,
+            "conditions":    "",
+            "device_id":     device_id,
+            "aqi_threshold": threshold,
+        })
+        _save(tokens)
 
 
 def get_tokens_near(lat: float, lng: float, radius_km: float = 5.0) -> list[str]:
