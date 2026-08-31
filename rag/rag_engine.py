@@ -244,7 +244,8 @@ def generate_advice(
         forecast_info = f"預報 AQI {forecast_aqi}（{forecast_status or _aqi_to_status(forecast_aqi)}）"
     else:
         forecast_info = "無預報資料"
-    hour = now_tw().hour
+    now = now_tw()
+    hour = now.hour
     if 0 <= hour < 6:
         time_label = "深夜／凌晨"
     elif hour < 12:

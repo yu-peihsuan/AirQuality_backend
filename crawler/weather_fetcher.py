@@ -3,7 +3,7 @@
 
 import os
 import requests
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 
 from core.timeutil import now_tw, to_tw
 

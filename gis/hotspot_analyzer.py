@@ -20,7 +20,6 @@ _DISPERSION_PARAMS = {
 
 def _get_dispersion_params() -> dict:
     """根據台灣當地時間（UTC+8）回傳對應的擴散參數。"""
-    from datetime import timezone, timedelta
     tw_hour = now_tw().hour
     return _DISPERSION_PARAMS["day"] if 6 <= tw_hour < 18 else _DISPERSION_PARAMS["night"]
 

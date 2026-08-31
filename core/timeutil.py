@@ -55,13 +55,20 @@ def now_tw() -> datetime:
 
 
 def now_iso() -> str:
-    """現在的台灣時間 ISO 字串，帶 +08:00 位移。寫入資料庫一律用這個。"""
-    return now_tw().isoformat()
+    """現在的台灣時間 ISO 字串，帶 +08:00 位移、秒精度。寫入資料庫一律用這個。
+
+    刻意捨去微秒：App 的 MapScreen 以
+    `SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")` 解析，格式在 ss 之後
+    緊接著要求時區，中間多出 ".123456" 會直接 ParseException。
+    秒精度對本系統綽綽有餘——最短的時間窗是 3 分鐘。
+    """
+    return now_tw().replace(microsecond=0).isoformat()
 
 
 def cutoff_iso(*, hours: int = 0, minutes: int = 0) -> str:
     """N 小時／分鐘前的台灣時間 ISO 字串，供資料庫的時間窗查詢使用。"""
-    return (now_tw() - timedelta(hours=hours, minutes=minutes)).isoformat()
+    return (now_tw() - timedelta(hours=hours, minutes=minutes)).replace(
+        microsecond=0).isoformat()
 
 
 def today_str() -> str:

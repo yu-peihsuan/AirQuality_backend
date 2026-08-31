@@ -22,7 +22,7 @@ from datetime import timedelta
 sys.path.insert(0, ".")
 
 import db.reports_db as reports_db
-from core.timeutil import (TW, cutoff_iso, now_iso, now_tw, parse_iso,
+from core.timeutil import (cutoff_iso, now_iso, now_tw, parse_iso,
                            today_str, to_tw)
 
 _passed = 0
@@ -65,6 +65,14 @@ def main() -> int:
     check("now_iso() 帶 +08:00 位移（App 的 MapScreen 需要）",
           now_iso().endswith("+08:00"), f"實得 {now_iso()[-6:]!r}")
     check("cutoff_iso() 同樣帶位移", cutoff_iso(hours=1).endswith("+08:00"))
+
+    # App 的 MapScreen 用 SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ") 解析，
+    # ss 之後緊接著要求時區，多出微秒會 ParseException。
+    fmt = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+08:00$")
+    check("now_iso() 是秒精度、無微秒（MapScreen 才解析得動）",
+          bool(fmt.fullmatch(now_iso())), f"實得 {now_iso()}")
+    check("cutoff_iso() 同樣是秒精度",
+          bool(fmt.fullmatch(cutoff_iso(minutes=3))), f"實得 {cutoff_iso(minutes=3)}")
     check("today_str() 與 now_tw() 的日期一致",
           today_str() == now_tw().strftime("%Y-%m-%d"))
     print()
