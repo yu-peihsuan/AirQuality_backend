@@ -314,7 +314,11 @@ AQI_HEALTH_RULES = [
             "對所有族群不健康，PM2.5 日均濃度約在七十五到一百一十五微克每立方公尺之間。"
             "此濃度為 WHO 二零二一年日均標準（十五微克每立方公尺）的五倍至七倍以上。"
         ),
-        "level": "不健康",
+        # 等級名稱必須與環境部（及 rag_engine._aqi_to_status、
+        # forecast_fetcher._aqi_to_status、App 的 Color.getAqiColor）一致。
+        # 這裡若只寫「不健康」，/api/rag_advice 回的 aqi_level 就對不上
+        # App 的顏色比對規則，AQI 151–200 會掉進預設色。
+        "level": "對所有族群不健康",
         "level_en": "Unhealthy",
         "color": "紅色",
         "health_effects": (
@@ -705,14 +709,22 @@ AQI_HEALTH_RULES = [
 
 
 def get_rule_by_aqi(aqi_value: int) -> dict | None:
-    """根據 AQI 數值回傳對應的健康規則（不含突發事件型規則）。"""
-    for rule in AQI_HEALTH_RULES:
-        if rule["aqi_range"] is None:
-            continue
+    """根據 AQI 數值回傳對應的健康規則（不含突發事件型規則）。
+
+    超出 0–500 的數值一律夾到最接近的等級。AQI 的定義上限是 500，但測站
+    偶爾會回報更大的值；照字面比對區間會在最危險的時候回 None，讓建議
+    退化成「未知等級」、也檢索不到任何防護指引——正好相反於該有的行為。
+    """
+    ranged = [r for r in AQI_HEALTH_RULES if r["aqi_range"] is not None]
+    for rule in ranged:
         lo, hi = rule["aqi_range"]
         if lo <= aqi_value <= hi:
             return rule
-    return None
+    if not ranged:
+        return None
+    if aqi_value > max(r["aqi_range"][1] for r in ranged):
+        return max(ranged, key=lambda r: r["aqi_range"][1])
+    return min(ranged, key=lambda r: r["aqi_range"][0])
 
 
 def get_all_rules() -> list[dict]:

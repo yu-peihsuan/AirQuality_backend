@@ -79,31 +79,41 @@ def _forecast_push_job():
 
     print(f"[{log_ts()}] ⏰ 空品預報推播排程啟動...")
     try:
-        from crawler.forecast_fetcher import fetch_worsening_forecasts
+        from crawler.forecast_fetcher import counties_in_area, fetch_worsening_forecasts
         worsening = fetch_worsening_forecasts()
         if not worsening:
             print("  ✅ 明日無縣市空品惡化預報，無需推播。")
             return
         sent = 0
         for rec in worsening:
-            county      = rec["region"]
+            # 預報是以「空品區」為單位發布的（北部、竹苗、雲嘉南…），
+            # 但裝置 token 是以縣市註冊的。這裡必須先把空品區展開成縣市，
+            # 否則拿「北部空品區」去查 token 永遠是空清單，一則也送不出去。
             forecastdate = rec["published_at"]
-            key = (county, forecastdate)
-            if key in _forecast_pushed:
-                continue  # 當天已推過，跳過
-            tokens = get_tokens_by_county(county)
-            if not tokens:
-                _forecast_pushed.add(key)
+            counties = counties_in_area(rec.get("area") or rec.get("region", ""))
+            if not counties:
+                print(f"  ⚠️ 無法對應空品區到縣市，略過：{rec.get('area') or rec.get('region')}")
                 continue
-            title = f"空品預報｜{county}"
-            body  = rec["summary"] or rec["title"]
-            try:
-                send_multicast(tokens, title=title, body=body, data={"type": "forecast", "county": county})
-                _forecast_pushed.add(key)
-                print(f"  📲 推播：{county} | {len(tokens)} 台裝置")
-                sent += 1
-            except Exception as e:
-                print(f"  ⚠️ 推播失敗：{county} | {e}")
+            if rec.get("aqi"):
+                body = f"明日預報 AQI {rec['aqi']}（{rec['status']}），請提前做好防護"
+            else:
+                body = rec["summary"] or rec["title"]
+            for county in counties:
+                key = (county, forecastdate)
+                if key in _forecast_pushed:
+                    continue  # 當天已推過，跳過
+                tokens = get_tokens_by_county(county)
+                if not tokens:
+                    _forecast_pushed.add(key)
+                    continue
+                try:
+                    send_multicast(tokens, title=f"空品預報｜{county}", body=body,
+                                   data={"type": "forecast", "county": county})
+                    _forecast_pushed.add(key)
+                    print(f"  📲 推播：{county} | {len(tokens)} 台裝置")
+                    sent += 1
+                except Exception as e:
+                    print(f"  ⚠️ 推播失敗：{county} | {e}")
         if sent:
             print(f"  ✅ 預報推播完成，共 {sent} 個縣市")
         else:
@@ -931,20 +941,20 @@ def get_rag_advice(req: RagAdviceRequest, caller: CallerIdentity = Depends(get_c
     try:
         county = req.county
 
-        # 1. 取得當地 AQI 資料（若前端已傳入則直接使用，不重複呼叫 API）
+        # 1+2. 取得當地測站資料：AQI／PM2.5／風速風向／溫度
+        # 同一個縣市只查一次 MOENV。修正前 AQI 與風況各查一次，同樣的請求
+        # 打兩次外部 API，還可能取到兩個不同批次的資料（欄位彼此不一致）。
+        aqi_data = _fetch_aqi_for_county(county)
         if req.aqi is not None:
+            # 前端已量測過就用前端的值，但風況／溫度仍取自測站
             aqi = req.aqi
             pm25 = req.pm25 if req.pm25 is not None else 0.0
         else:
-            aqi_data = _fetch_aqi_for_county(county)
             aqi = aqi_data.get("aqi", 0)
             pm25 = aqi_data.get("pm25", 0.0)
-
-        # 2. 從 AQI 資料取得風速風向與溫度
-        aqi_wind = _fetch_aqi_for_county(county)
-        wind_speed = aqi_wind.get("wind_speed", 0.0)
-        wind_direction = aqi_wind.get("wind_direction", 0.0)
-        temperature = aqi_wind.get("temperature", 0.0)
+        wind_speed = aqi_data.get("wind_speed", 0.0)
+        wind_direction = aqi_data.get("wind_direction", 0.0)
+        temperature = aqi_data.get("temperature", 0.0)
 
         # 3. 取得即時天氣（降雨、天氣描述）
         from crawler.weather_fetcher import fetch_weather_for_county, fetch_weather_forecast_for_county
@@ -967,7 +977,11 @@ def get_rag_advice(req: RagAdviceRequest, caller: CallerIdentity = Depends(get_c
         downwind_sources: list[dict] = []
 
         if req.latitude is not None and req.longitude is not None and wind_speed >= 0.5:
-            hotspots = analyze_hotspots(min_reports=2, cluster_radius_km=1.5, top_n=10)
+            # 風況要一併帶進熱點分析：下風處判斷用的是真實風速，熱點分析若
+            # 仍吃預設的 0 m/s，就會以「無風」的加倍半徑算出熱點，
+            # 同一個請求裡兩邊對風的假設不一致。
+            hotspots = analyze_hotspots(min_reports=2, cluster_radius_km=1.5, top_n=10,
+                                        wind_speed=wind_speed, wind_direction=wind_direction)
             if hotspots:
                 downwind_sources = check_downwind(
                     user_lat=req.latitude,
