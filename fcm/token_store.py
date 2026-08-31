@@ -58,24 +58,30 @@ def _haversine(lat1, lng1, lat2, lng2) -> float:
 
 
 def register_token(token: str, county: str = "", lat: float = None, lng: float = None,
-                   conditions: str = "", device_id: str = ""):
+                   conditions: str | None = None, device_id: str = ""):
     """新增或更新一筆裝置 token（含座標、健康狀況與所屬裝置）。
 
     device_id 來自 access token，用於確認後續修改通知設定的人就是
     當初註冊這個 FCM token 的裝置（見 claim_token）。
 
-    county 與 conditions 給空字串時視為「這次沒有要更新」，保留原值。
-    App 的 MyFirebaseMessagingService.onNewToken 以
-    uploadTokenWithCounty(context, "") 重新註冊；若照單全收，使用者的縣市
-    會在每次 token 輪替時被清空，之後所有縣市推播都收不到。
+    county 與 conditions 的空值語意不同，不能一起處理：
+
+    - county=""：真的是「這次沒有縣市資訊」。App 的
+      MyFirebaseMessagingService.onNewToken 以 uploadTokenWithCounty(context, "")
+      重新註冊，只有縣市是空的；照單全收會讓使用者的縣市在每次 token 輪替時
+      被清空，之後所有縣市推播都收不到。所以空字串一律略過。
+    - conditions=""：真的是「這個使用者沒有任何健康狀況」。TokenManager 每次
+      都從 prefs 讀當下的真實值送出（onNewToken 那條路也一樣），所以空字串是
+      有意義的值，必須寫進去——否則使用者在設定裡取消「氣喘」之後，後端仍留著
+      舊值，他會一直收到敏感族群的 AQI 警示。「不要更新」用 None 表達。
     """
     county = _normalize_county(county)
     with _lock:
         tokens = _load()
         for t in tokens:
             if t["token"] == token:
-                if county:          t["county"]     = county
-                if conditions:      t["conditions"] = conditions
+                if county:                  t["county"]     = county
+                if conditions is not None:  t["conditions"] = conditions
                 if lat is not None: t["lat"]        = lat
                 if lng is not None: t["lng"]        = lng
                 if device_id:       t["device_id"]  = device_id
@@ -86,7 +92,7 @@ def register_token(token: str, county: str = "", lat: float = None, lng: float =
             "county":     county,
             "lat":        lat,
             "lng":        lng,
-            "conditions": conditions,
+            "conditions": conditions or "",
             "device_id":  device_id,
         })
         _save(tokens)

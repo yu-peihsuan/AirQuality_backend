@@ -1227,7 +1227,9 @@ class TokenRegisterRequest(BaseModel):
     county:     str   = ""
     lat:        float = None
     lng:        float = None
-    conditions: str   = ""  # 健康狀況，逗號分隔，如「氣喘,心血管疾病」
+    # 健康狀況，逗號分隔，如「氣喘,心血管疾病」。
+    # 預設 None（未帶此欄位）＝不更新；帶 "" ＝使用者沒有任何健康狀況，要清空。
+    conditions: str | None = None
 
 
 @app.post("/api/fcm/register")
