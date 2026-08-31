@@ -28,6 +28,10 @@ from api.auth import module as auth_router
 from core.auth import CallerIdentity, get_caller_identity, verify_admin
 from core.timeutil import TW, log_ts, now_iso, now_tw, parse_iso, today_str
 from db.devices_db import init_device_db
+from db.push_state import (
+    get_int as push_state_get_int, init_push_state_db,
+    mark_pushed, set_int as push_state_set_int, was_pushed,
+)
 from db.reports_db import (
     init_db, insert_report,
     get_recent_reports, get_all_reports,
@@ -63,20 +67,15 @@ def _scraper_job():
 
 
 # ── 空品預報推播排程任務 ──────────────────────────────────────────────────────
-# 記錄已推播過的 (county, forecastdate)，當天內不重複推播同一縣市
-_forecast_pushed: set[tuple[str, str]] = set()
-_forecast_pushed_date: str = ""
+# 「已推播」記錄存在 SQLite（db/push_state），不是行程記憶體：這個 job 是
+# next_run_time=now_tw()，行程一啟動就跑，而 Cloud Run 冷啟動／擴縮／重新
+# 部署都會建立新行程。狀態放記憶體的話，當天每次重啟都會把同一則預報再推
+# 一次給同一批裝置。
 
 
 def _forecast_push_job():
-    """每 2 小時執行：若明天空品惡化（AQI ≥ 101）且當天尚未推播，則立即推播。"""
-    global _forecast_pushed, _forecast_pushed_date
+    """每 30 分鐘執行：若明天空品惡化（AQI ≥ 101）且當天尚未推播，則立即推播。"""
     today = today_str()
-    # 跨日重置已推播記錄
-    if _forecast_pushed_date != today:
-        _forecast_pushed = set()
-        _forecast_pushed_date = today
-
     print(f"[{log_ts()}] ⏰ 空品預報推播排程啟動...")
     try:
         from crawler.forecast_fetcher import counties_in_area, fetch_worsening_forecasts
@@ -89,7 +88,6 @@ def _forecast_push_job():
             # 預報是以「空品區」為單位發布的（北部、竹苗、雲嘉南…），
             # 但裝置 token 是以縣市註冊的。這裡必須先把空品區展開成縣市，
             # 否則拿「北部空品區」去查 token 永遠是空清單，一則也送不出去。
-            forecastdate = rec["published_at"]
             counties = counties_in_area(rec.get("area") or rec.get("region", ""))
             if not counties:
                 print(f"  ⚠️ 無法對應空品區到縣市，略過：{rec.get('area') or rec.get('region')}")
@@ -99,17 +97,20 @@ def _forecast_push_job():
             else:
                 body = rec["summary"] or rec["title"]
             for county in counties:
-                key = (county, forecastdate)
-                if key in _forecast_pushed:
+                # 以「縣市＋日期」為鍵，落實原本註解寫的「當天內不重複推播同一
+                # 縣市」。用 publishtime 當鍵的話，同一天若有第二次發布就會再
+                # 推一次；而 fetch_latest_forecast 本來就只取當天最新那筆。
+                key = f"forecast:{county}:{today}"
+                if was_pushed(key):
                     continue  # 當天已推過，跳過
                 tokens = get_tokens_by_county(county)
                 if not tokens:
-                    _forecast_pushed.add(key)
+                    mark_pushed(key)
                     continue
                 try:
                     send_multicast(tokens, title=f"空品預報｜{county}", body=body,
                                    data={"type": "forecast", "county": county})
-                    _forecast_pushed.add(key)
+                    mark_pushed(key)
                     print(f"  📲 推播：{county} | {len(tokens)} 台裝置")
                     sent += 1
                 except Exception as e:
@@ -123,11 +124,10 @@ def _forecast_push_job():
 
 
 # ── 火災警示推播 ──────────────────────────────────────────────────────────────
-_fire_pushed: set[str] = set()  # 已推播過的 alert ID
+# 已推播過的 alert ID 同樣存 DB（理由見 _forecast_push_job 上方說明）
 
 def _fire_alert_push_job():
     """每 10 分鐘：有新重大火災警示就推播給受影響縣市。"""
-    global _fire_pushed
     print(f"[{log_ts()}] ⏰ 火災警示推播排程啟動...")
     try:
         from crawler.fire_alert_scraper import fetch_fire_alerts
@@ -135,18 +135,21 @@ def _fire_alert_push_job():
         sent = 0
         for alert in alerts:
             aid = alert.get("id", "")
-            if not aid or aid in _fire_pushed:
+            if not aid:
+                continue
+            key = f"fire:{aid}"
+            if was_pushed(key):
                 continue
             county = alert.get("county", "")
             tokens = get_tokens_by_county(county)
             if not tokens:
-                _fire_pushed.add(aid)
+                mark_pushed(key)
                 continue
             title = f"🔥 火災警示｜{county}"
             body  = alert.get("area_desc", "") or alert.get("description", "重大火災")
             try:
                 send_multicast(tokens, title=title, body=body.strip(), data={"type": "fire", "county": county})
-                _fire_pushed.add(aid)
+                mark_pushed(key)
                 sent += 1
                 print(f"  📲 火災推播：{county} | {len(tokens)} 台裝置")
             except Exception as e:
@@ -158,7 +161,8 @@ def _fire_alert_push_job():
 
 
 # ── AQI 超標推播 ──────────────────────────────────────────────────────────────
-_aqi_alerted: dict[str, int] = {}  # county -> last pushed AQI band (0=normal,1=sensitive,2=all)
+# county -> 上次推播的 AQI 等級（0=正常, 1=敏感族群, 2=全體），同樣存 DB。
+# 這筆狀態若在重啟後遺失，AQI 持續超標的縣市會被當成「剛開始超標」再推一次。
 
 # ── AQI 回應快取（MOENV API 不穩定時的備援）────────────────────────────────────
 _aqi_records_cache: list = []       # 最後一次成功取得的全台站點原始資料
@@ -188,7 +192,8 @@ def _aqi_alert_push_job():
                 county_max[county] = aqi
 
         for county, aqi in county_max.items():
-            prev_band = _aqi_alerted.get(county, 0)
+            band_key = f"aqi_band:{county}"
+            prev_band = push_state_get_int(band_key, 0)
             if aqi >= 151:
                 band = 2
                 if band <= prev_band:
@@ -205,13 +210,14 @@ def _aqi_alert_push_job():
                 title = f"⚠️ 空氣警示｜{county}"
                 body  = f"AQI {aqi}，敏感族群注意防護"
             else:
-                _aqi_alerted[county] = 0
+                if prev_band:
+                    push_state_set_int(band_key, 0)
                 continue
             if not tokens:
                 continue
             try:
                 send_multicast(tokens, title=title, body=body, data={"type": "aqi", "county": county})
-                _aqi_alerted[county] = band
+                push_state_set_int(band_key, band)
                 print(f"  📲 AQI 推播：{county} AQI {aqi} | {len(tokens)} 台裝置")
             except Exception as e:
                 print(f"  ⚠️ AQI 推播失敗：{county} | {e}")
@@ -325,6 +331,7 @@ async def lifespan(app: FastAPI):
     try:
         init_db()
         init_device_db()
+        init_push_state_db()
     except Exception as e:
         print(f"⚠️  DB 初始化失敗：{e}")
 
