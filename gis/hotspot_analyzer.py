@@ -177,6 +177,48 @@ def _get_dominant_type(reports: list[dict]) -> str:
     return Counter(types).most_common(1)[0][0]
 
 
+def _cluster_by_distance(reports: list[dict], radius_km: float, min_reports: int,
+                        top_n: int, make_hotspot) -> list[dict]:
+    """不依賴 KDE 的備援分群：以回報點本身為中心做貪婪聚合。
+
+    KDE 在退化輸入（點共線、點數過少、密度完全均勻）下無法估計密度，
+    但這些輸入仍然有熱點可談——鄰居數最多的點就是最密集的地方。
+    intensity 改以「群內回報數 / 最大群回報數」表示，維持 0~1 的語意。
+    """
+    neighbors = []
+    for r in reports:
+        members = [
+            other for other in reports
+            if _haversine(r["latitude"], r["longitude"],
+                          other["latitude"], other["longitude"]) <= radius_km
+        ]
+        neighbors.append((r, members))
+    neighbors.sort(key=lambda pair: len(pair[1]), reverse=True)
+
+    max_count = len(neighbors[0][1]) if neighbors else 0
+    if max_count < min_reports:
+        return []
+
+    hotspots: list[dict] = []
+    claimed: set[int] = set()
+    for _, members in neighbors:
+        member_ids = {id(m) for m in members}
+        if member_ids & claimed:
+            continue
+        if len(members) < min_reports:
+            continue
+        claimed |= member_ids
+        center_lat = sum(m["latitude"] for m in members) / len(members)
+        center_lng = sum(m["longitude"] for m in members) / len(members)
+        hotspots.append(make_hotspot(
+            float(center_lat), float(center_lng), len(members),
+            round(len(members) / max_count, 3), members,
+        ))
+        if len(hotspots) >= top_n:
+            break
+    return hotspots
+
+
 def analyze_hotspots(
     min_reports: int = 2,
     cluster_radius_km: float = 1.5,
@@ -237,10 +279,14 @@ def analyze_hotspots(
         return [_make_hotspot(float(np.mean(lats)), float(np.mean(lngs)), len(reports), 1.0, reports)]
 
     # KDE 估計密度（bandwidth 用 scott 法自動選）
+    # 回報點共線時（例如同一條路上的幾筆通報，或只有兩筆座標）樣本共變異數矩陣
+    # 是奇異的，gaussian_kde 會丟 numpy.linalg.LinAlgError。這種輸入完全合理，
+    # 不該被當成「沒有熱點」靜默吞掉——改用不需要密度估計的距離分群。
     try:
         kde = gaussian_kde(np.vstack([lats, lngs]))
-    except Exception:
-        return []
+    except Exception as e:
+        print(f"⚠️  KDE 無法估計密度（{type(e).__name__}: {e}），改用距離分群")
+        return _cluster_by_distance(reports, effective_radius, min_reports, top_n, _make_hotspot)
 
     # 建立評估網格（以資料範圍為邊界，解析度 50x50）
     lat_min, lat_max = lats.min() - 0.05, lats.max() + 0.05
@@ -255,7 +301,8 @@ def analyze_hotspots(
     # 正規化密度到 0~1
     d_min, d_max = density.min(), density.max()
     if d_max == d_min:
-        return []
+        # 密度完全均勻（同樣是退化輸入），一樣不該回空清單
+        return _cluster_by_distance(reports, effective_radius, min_reports, top_n, _make_hotspot)
     density_norm = (density - d_min) / (d_max - d_min)
 
     # 找出密度 > 0.5 的候選網格點，依密度排序

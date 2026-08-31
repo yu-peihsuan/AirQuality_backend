@@ -119,6 +119,18 @@ _json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "CityCount
 with open(_json_path, encoding="utf-8") as _f:
     _city_data = json.load(_f)
 
+def _strip_district_suffix(name: str) -> str:
+    """去掉行政區名稱最後一個「區／鄉／鎮／市」字。
+
+    不能用 rstrip("區鄉鎮市")：rstrip 會把結尾「所有」屬於該集合的字都吃掉，
+    台南「新市區」會被縮成「新」，之後任何含「新聞」「最新」「創新」的
+    標題都會被判成台南。同理受害的還有嘉義「太保市」等地名。
+    """
+    if len(name) > 1 and name[-1] in "區鄉鎮市":
+        return name[:-1]
+    return name
+
+
 DISTRICTS = {}
 for _city in _city_data:
     _city_name = _city["name"].replace("臺", "台")  # 統一用「台」
@@ -128,7 +140,7 @@ for _city in _city_data:
     _short = _CITY_ALIAS.get(_short, _short)         # 套用別名
     if _short is None:
         continue
-    _districts = [area["name"].rstrip("區鄉鎮市") for area in _city["districts"]]
+    _districts = [_strip_district_suffix(area["name"]) for area in _city["districts"]]
     if _short not in DISTRICTS:
         DISTRICTS[_short] = _districts
     else:
@@ -174,6 +186,28 @@ _AMBIGUOUS_DISTRICTS = {
     "中山", "中正", "光復", "復興", "建國",
 }
 
+# 縮寫比對用的「不可切斷」名稱集合：所有行政區短名與縣市短名。
+# 縮寫是子字串比對，「竹北市」裡就藏著「北市」——若不檢查前一個字，
+# 新竹縣竹北市的新聞會被判成台北市。同理「新北市」裡也藏著「北市」。
+_PLACE_PREFIXES: set[str] = set(DISTRICTS.keys())
+for _ds in DISTRICTS.values():
+    _PLACE_PREFIXES.update(_ds)
+
+
+def _abbrev_hit(abbrev: str, text: str) -> bool:
+    """縮寫是否真的出現在文中（而不是某個更長地名的尾巴）。
+
+    只要「前一個字＋縮寫的第一個字」本身就是個地名（如「竹北」「新北」），
+    這次命中就是切錯字，不採用。
+    """
+    idx = text.find(abbrev)
+    while idx != -1:
+        if idx == 0 or text[idx - 1:idx + 1] not in _PLACE_PREFIXES:
+            return True
+        idx = text.find(abbrev, idx + 1)
+    return False
+
+
 def extract_region(text):
     """從標題或摘要中擷取地區，精確到鄉鎮市區"""
     # 0. 優先比對地標別名
@@ -185,13 +219,31 @@ def extract_region(text):
     found_district = None
     forced_suffix = None   # 從縮寫明確知道是市還是縣時使用
 
-    def _find_district(districts, text, allow_ambiguous: bool = False):
+    def _find_district(districts, text, allow_ambiguous: bool = False,
+                       county_name: str = ""):
         """在行政區清單中找命中的名稱。
+
         長名稱優先（避免「南」比「安南」先命中）。
         allow_ambiguous=False 時跳過易混淆的單字行政區。
+
+        兩段式比對：先找「後面緊接著區／鄉／鎮／市」的強命中，找不到才退回
+        一般子字串命中。少了強命中這一段，「南投縣草屯鎮」會因為縣名本身
+        也是行政區名（南投市）而先命中「南投」，輸出成「南投縣南投」。
+        退回一般命中時也不接受與縣名同字的行政區，理由同上。
         """
-        for d in sorted(districts, key=len, reverse=True):
-            if not allow_ambiguous and d in _AMBIGUOUS_DISTRICTS:
+        ordered = [d for d in sorted(districts, key=len, reverse=True)
+                   if allow_ambiguous or d not in _AMBIGUOUS_DISTRICTS]
+
+        for d in ordered:
+            idx = text.find(d)
+            while idx != -1:
+                nxt = idx + len(d)
+                if nxt < len(text) and text[nxt] in "區鄉鎮市":
+                    return d
+                idx = text.find(d, idx + 1)
+
+        for d in ordered:
+            if d == county_name:
                 continue
             if d in text:
                 return d
@@ -202,25 +254,28 @@ def extract_region(text):
     for county, districts in DISTRICTS.items():
         if county in text:
             found_county = county
-            found_district = _find_district(districts, text, allow_ambiguous=True)
+            found_district = _find_district(districts, text, allow_ambiguous=True,
+                                            county_name=county)
             if found_district:
                 break
 
     # 2. 若完整縣市名找不到，才嘗試縣市縮寫（如「嘉市」「竹縣」）
     if not found_county:
         for abbrev, (short_name, abbrev_suffix) in _COUNTY_ABBREVS.items():
-            if abbrev in text:
+            if _abbrev_hit(abbrev, text):
                 found_county = short_name
                 forced_suffix = abbrev_suffix
                 found_district = _find_district(
-                    DISTRICTS.get(short_name, []), text, allow_ambiguous=True
+                    DISTRICTS.get(short_name, []), text, allow_ambiguous=True,
+                    county_name=short_name,
                 )
                 break
 
     # 3. 若仍找不到縣市，用行政區反推（排除易混淆單字）
     if not found_county:
         for county, districts in DISTRICTS.items():
-            d = _find_district(districts, text, allow_ambiguous=False)
+            d = _find_district(districts, text, allow_ambiguous=False,
+                               county_name=county)
             if d:
                 found_county = county
                 found_district = d

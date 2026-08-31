@@ -18,9 +18,49 @@ _COUNTY_TO_AREA = {
 }
 
 
+# 空品區 → 完整縣市名稱。預報資料以空品區為單位發布（「北部」「竹苗」…），
+# 但推播是以縣市查裝置 token 的；沒有這張反查表，拿「北部」去
+# get_tokens_by_county() 永遠是空清單，整條預報推播管線一則都送不出去。
+_AREA_TO_COUNTIES: dict[str, list[str]] = {
+    "北部":   ["基隆市", "台北市", "新北市", "桃園市"],
+    "竹苗":   ["新竹市", "新竹縣", "苗栗縣"],
+    "中部":   ["台中市", "彰化縣", "南投縣"],
+    "雲嘉南": ["雲林縣", "嘉義市", "嘉義縣", "台南市"],
+    "高屏":   ["高雄市", "屏東縣"],
+    "宜蘭":   ["宜蘭縣"],
+    "花東":   ["花蓮縣", "台東縣"],
+    # 環境部把離島拆成三個獨立的預報區,沒有「離島」這一區;
+    # 「馬祖」對應的縣市全名是連江縣,裝置註冊時存的是後者。
+    "澎湖":   ["澎湖縣"],
+    "金門":   ["金門縣"],
+    "馬祖":   ["連江縣"],
+    "離島":   ["澎湖縣", "金門縣", "連江縣"],   # 保留:萬一上游改回合併發布
+}
+
+# 反查表裡出現過的完整縣市名。fallback 只能回傳這裡面的名稱——
+# 短名(「澎湖」)拿去 get_tokens_by_county() 對不上存的「澎湖縣」,
+# 卻又因為清單非空而不會觸發警告,等於靜默漏推。
+_ALL_COUNTIES: set[str] = {c for cs in _AREA_TO_COUNTIES.values() for c in cs}
+
+
 def _county_to_area(county: str) -> str | None:
     norm = county.replace("臺", "台").rstrip("市縣")
     return _COUNTY_TO_AREA.get(norm)
+
+
+def counties_in_area(area: str) -> list[str]:
+    """空品區名稱（如「北部空品區」）→ 該區的完整縣市名稱清單。
+
+    area 欄位的實際內容可能帶「空品區」後綴，因此以包含關係比對。
+    傳入的若本來就是縣市名稱，原樣回傳單一元素，讓呼叫端不必分辨。
+    """
+    if not area:
+        return []
+    norm = area.replace("臺", "台")
+    for area_short, counties in _AREA_TO_COUNTIES.items():
+        if area_short in norm:
+            return list(counties)
+    return [norm] if norm in _ALL_COUNTIES else []
 
 
 def _aqi_rank(aqi: int) -> int:
@@ -173,6 +213,7 @@ def fetch_today_forecasts(county: str = None) -> list[dict]:
             "url":          "",
             "published_at": publishtime,
             "timestamp":    "",
+            "area":         area,
         })
     return result
 
@@ -201,5 +242,10 @@ def fetch_worsening_forecasts(county: str = None, current_aqi: int = 0) -> list[
             "url":          "",
             "published_at": publishtime,
             "timestamp":    "",
+            # 空品區原名。推播端要靠它反查該區包含哪些縣市（counties_in_area）；
+            # region 在未指定 county 時就是空品區名稱，直接拿去查 token 會全空。
+            "area":         area,
+            "aqi":          forecast_aqi,
+            "status":       status,
         })
     return result

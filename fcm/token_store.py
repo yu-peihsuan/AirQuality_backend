@@ -4,10 +4,27 @@
 import json
 import math
 import os
+import tempfile
+import threading
 
 from core.timeutil import now_tw
 
 _TOKEN_FILE = os.path.join(os.path.dirname(__file__), "..", "crawler", "fcm_tokens.json")
+
+# token 檔是「整檔讀出→改一筆→整檔寫回」。FastAPI 以執行緒池處理同步端點，
+# 兩個裝置同時註冊時兩條執行緒會各自讀到同一份舊清單，後寫的那份把先寫的
+# 那筆蓋掉（lost update）。所有讀改寫的區段都必須在這把鎖裡完成。
+_lock = threading.RLock()
+
+
+def _normalize_county(county: str) -> str:
+    """縣市名稱正規化：「臺」一律轉為「台」。
+
+    寫入與查詢都要經過這裡。App 的定位結果可能給出「臺北市」，而推播端
+    （main.normalize_name）查的是「台北市」；兩者若不統一，臺北／臺中／
+    臺南／臺東的裝置就永遠查不到。
+    """
+    return county.replace("臺", "台") if county else county
 
 
 def _load() -> list[dict]:
@@ -18,8 +35,18 @@ def _load() -> list[dict]:
 
 
 def _save(tokens: list[dict]):
-    with open(_TOKEN_FILE, "w", encoding="utf-8") as f:
-        json.dump(tokens, f, ensure_ascii=False, indent=2)
+    """先寫暫存檔再 os.replace，避免寫到一半中斷時留下半截的 JSON。"""
+    directory = os.path.dirname(os.path.abspath(_TOKEN_FILE))
+    os.makedirs(directory, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=directory, prefix=".fcm_tokens.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(tokens, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, _TOKEN_FILE)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
 
 
 def _haversine(lat1, lng1, lat2, lng2) -> float:
@@ -36,26 +63,33 @@ def register_token(token: str, county: str = "", lat: float = None, lng: float =
 
     device_id 來自 access token，用於確認後續修改通知設定的人就是
     當初註冊這個 FCM token 的裝置（見 claim_token）。
+
+    county 與 conditions 給空字串時視為「這次沒有要更新」，保留原值。
+    App 的 MyFirebaseMessagingService.onNewToken 以
+    uploadTokenWithCounty(context, "") 重新註冊；若照單全收，使用者的縣市
+    會在每次 token 輪替時被清空，之後所有縣市推播都收不到。
     """
-    tokens = _load()
-    for t in tokens:
-        if t["token"] == token:
-            t["county"]     = county
-            t["conditions"] = conditions
-            if lat is not None: t["lat"] = lat
-            if lng is not None: t["lng"] = lng
-            if device_id:       t["device_id"] = device_id
-            _save(tokens)
-            return
-    tokens.append({
-        "token":      token,
-        "county":     county,
-        "lat":        lat,
-        "lng":        lng,
-        "conditions": conditions,
-        "device_id":  device_id,
-    })
-    _save(tokens)
+    county = _normalize_county(county)
+    with _lock:
+        tokens = _load()
+        for t in tokens:
+            if t["token"] == token:
+                if county:          t["county"]     = county
+                if conditions:      t["conditions"] = conditions
+                if lat is not None: t["lat"]        = lat
+                if lng is not None: t["lng"]        = lng
+                if device_id:       t["device_id"]  = device_id
+                _save(tokens)
+                return
+        tokens.append({
+            "token":      token,
+            "county":     county,
+            "lat":        lat,
+            "lng":        lng,
+            "conditions": conditions,
+            "device_id":  device_id,
+        })
+        _save(tokens)
 
 
 def claim_token(token: str, device_id: str) -> bool:
@@ -66,30 +100,33 @@ def claim_token(token: str, device_id: str) -> bool:
     - 已有紀錄且 device_id 相符：回 True
     - 已有紀錄但屬於其他裝置：回 False
     """
-    tokens = _load()
-    for t in tokens:
-        if t["token"] != token:
-            continue
-        owner = t.get("device_id")
-        if not owner:
-            t["device_id"] = device_id
-            _save(tokens)
-            return True
-        return owner == device_id
-    return True
+    with _lock:
+        tokens = _load()
+        for t in tokens:
+            if t["token"] != token:
+                continue
+            owner = t.get("device_id")
+            if not owner:
+                t["device_id"] = device_id
+                _save(tokens)
+                return True
+            return owner == device_id
+        return True
 
 
 def get_tokens_by_county(county: str) -> list[str]:
     """取得指定縣市的所有裝置 token。"""
-    return [t["token"] for t in _load() if t.get("county") == county]
+    norm = _normalize_county(county)
+    return [t["token"] for t in _load() if _normalize_county(t.get("county", "")) == norm]
 
 
 def get_sensitive_tokens_by_county(county: str) -> list[str]:
     """取得指定縣市且有敏感健康狀況的 token。"""
     _SENSITIVE = ["氣喘", "心血管疾病", "懷孕中", "高血壓", "呼吸道疾病", "18歲以下", "65歲以上"]
+    norm = _normalize_county(county)
     result = []
     for t in _load():
-        if t.get("county") != county:
+        if _normalize_county(t.get("county", "")) != norm:
             continue
         if any(k in t.get("conditions", "") for k in _SENSITIVE):
             result.append(t["token"])
@@ -112,6 +149,24 @@ def get_tokens_near(lat: float, lng: float, radius_km: float = 5.0) -> list[str]
 def get_all_tokens() -> list[str]:
     """取得所有裝置 token。"""
     return [t["token"] for t in _load()]
+
+
+def remove_tokens(dead_tokens: list[str]) -> int:
+    """刪除失效的 token（FCM 回報 UNREGISTERED／INVALID_ARGUMENT 時使用）。
+
+    回傳實際刪除的筆數。留著失效 token 只會讓每次推播多一筆必然失敗的請求，
+    並讓 failure_count 永遠不為零、掩蓋掉真正的問題。
+    """
+    dead = set(dead_tokens)
+    if not dead:
+        return 0
+    with _lock:
+        tokens = _load()
+        kept = [t for t in tokens if t.get("token") not in dead]
+        removed = len(tokens) - len(kept)
+        if removed:
+            _save(kept)
+        return removed
 
 
 def get_token_county(token: str) -> str | None:
@@ -142,29 +197,30 @@ def set_daily_preference(token: str, enabled: bool, hour: int | None = None,
             and (hour, minute) <= (now.hour, now.minute):
         last_sent = now.strftime("%Y-%m-%d")
 
-    tokens = _load()
-    for t in tokens:
-        if t["token"] == token:
-            t["daily_enabled"] = enabled
-            if enabled:
-                t["daily_hour"]      = hour
-                t["daily_minute"]    = minute
-                t["daily_last_sent"] = last_sent
-            _save(tokens)
-            return
-    tokens.append({
-        "token":           token,
-        "county":          "",
-        "lat":             None,
-        "lng":             None,
-        "conditions":      "",
-        "device_id":       device_id,
-        "daily_enabled":   enabled,
-        "daily_hour":      hour,
-        "daily_minute":    minute,
-        "daily_last_sent": last_sent,
-    })
-    _save(tokens)
+    with _lock:
+        tokens = _load()
+        for t in tokens:
+            if t["token"] == token:
+                t["daily_enabled"] = enabled
+                if enabled:
+                    t["daily_hour"]      = hour
+                    t["daily_minute"]    = minute
+                    t["daily_last_sent"] = last_sent
+                _save(tokens)
+                return
+        tokens.append({
+            "token":           token,
+            "county":          "",
+            "lat":             None,
+            "lng":             None,
+            "conditions":      "",
+            "device_id":       device_id,
+            "daily_enabled":   enabled,
+            "daily_hour":      hour,
+            "daily_minute":    minute,
+            "daily_last_sent": last_sent,
+        })
+        _save(tokens)
 
 
 def get_due_daily_tokens(hour: int, minute: int, today: str) -> list[dict]:
@@ -186,9 +242,10 @@ def get_due_daily_tokens(hour: int, minute: int, today: str) -> list[dict]:
 
 def mark_daily_sent(token: str, today: str):
     """標記一筆裝置今天已經收過每日摘要通知，避免重複發送。"""
-    tokens = _load()
-    for t in tokens:
-        if t["token"] == token:
-            t["daily_last_sent"] = today
-            _save(tokens)
-            return
+    with _lock:
+        tokens = _load()
+        for t in tokens:
+            if t["token"] == token:
+                t["daily_last_sent"] = today
+                _save(tokens)
+                return
