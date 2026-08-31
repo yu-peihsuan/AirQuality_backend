@@ -2,8 +2,9 @@
 # RAG 引擎：混合式檢索 + GPT-4o-mini 生成個人化空氣品質建議
 
 import os
-from datetime import datetime
 from openai import OpenAI
+
+from core.timeutil import now_tw
 from rag.embedder import query_knowledge_base
 from rag.health_rules import get_rule_by_aqi, get_rule_by_id
 
@@ -243,8 +244,7 @@ def generate_advice(
         forecast_info = f"預報 AQI {forecast_aqi}（{forecast_status or _aqi_to_status(forecast_aqi)}）"
     else:
         forecast_info = "無預報資料"
-    from datetime import timezone, timedelta
-    now = datetime.now(tz=timezone(timedelta(hours=8)))
+    now = now_tw()
     hour = now.hour
     if 0 <= hour < 6:
         time_label = "深夜／凌晨"

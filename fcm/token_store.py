@@ -4,7 +4,8 @@
 import json
 import math
 import os
-from datetime import datetime, timedelta, timezone
+
+from core.timeutil import now_tw
 
 _TOKEN_FILE = os.path.join(os.path.dirname(__file__), "..", "crawler", "fcm_tokens.json")
 
@@ -135,7 +136,7 @@ def set_daily_preference(token: str, enabled: bool, hour: int | None = None,
     # 配合 get_due_daily_tokens 的 catch-up 語意（時間已過即發）：
     # 若設定的時間「今天已經過了」，標記今天已發，避免一設定就立刻收到通知；
     # 設定的是今天稍後的時間則清除標記，讓今天照常發送。
-    now = datetime.now(timezone(timedelta(hours=8)))
+    now = now_tw()
     last_sent = ""
     if enabled and hour is not None and minute is not None \
             and (hour, minute) <= (now.hour, now.minute):

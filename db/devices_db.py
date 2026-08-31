@@ -3,7 +3,8 @@
 
 import sqlite3
 import os
-from datetime import datetime
+
+from core.timeutil import now_iso
 
 # 與 user_reports.db 放在同一位置，沿用既有的資料目錄慣例
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "crawler", "user_reports.db")
@@ -32,7 +33,7 @@ def init_device_db():
 
 def upsert_device(device_id: str):
     """註冊裝置；已存在則只更新 last_seen（不影響 revoked 狀態）。"""
-    now = datetime.now().isoformat()
+    now = now_iso()
     with _get_conn() as conn:
         conn.execute(
             """

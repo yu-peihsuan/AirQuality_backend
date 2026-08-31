@@ -3,7 +3,9 @@
 
 import os
 import requests
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+
+from core.timeutil import now_tw, to_tw
 
 _CWA_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0003-001"
 
@@ -165,15 +167,13 @@ def _pop_to_level(pop: int) -> str:
 
 def _current_period(periods: list) -> dict | None:
     """從時段清單中找到目前時間在有效範圍內的那筆，找不到則取最近未來時段。"""
-    now = datetime.now(tz=timezone(timedelta(hours=8)))
+    now = now_tw()
     future = None
     for p in periods:
         try:
-            start = datetime.fromisoformat(p["startTime"].replace(" ", "T"))
-            end   = datetime.fromisoformat(p["endTime"].replace(" ", "T"))
-            if start.tzinfo is None:
-                start = start.replace(tzinfo=timezone(timedelta(hours=8)))
-                end   = end.replace(tzinfo=timezone(timedelta(hours=8)))
+            # 中央氣象署的時間是台灣時間但不帶時區標記，to_tw 會據此補上。
+            start = to_tw(datetime.fromisoformat(p["startTime"].replace(" ", "T")))
+            end   = to_tw(datetime.fromisoformat(p["endTime"].replace(" ", "T")))
             if start <= now <= end:
                 return p
             if start > now and future is None:

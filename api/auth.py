@@ -15,7 +15,6 @@ from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from core.auth import decode_refresh_token, generate_tokens, hash_device_id
-from core.config import Limit
 from db.devices_db import is_active, upsert_device
 
 logger = logging.getLogger(__name__)

@@ -4,6 +4,7 @@
 import math
 import numpy as np
 from scipy.stats import gaussian_kde
+from core.timeutil import now_tw
 from db.reports_db import get_confirmed_reports
 
 CALM_WIND_THRESHOLD = 1.0  # 低於此風速（m/s）視為無風，擴散條件差
@@ -19,9 +20,7 @@ _DISPERSION_PARAMS = {
 
 def _get_dispersion_params() -> dict:
     """根據台灣當地時間（UTC+8）回傳對應的擴散參數。"""
-    from datetime import timezone, timedelta
-    import datetime as _dt
-    tw_hour = _dt.datetime.now(timezone(timedelta(hours=8))).hour
+    tw_hour = now_tw().hour
     return _DISPERSION_PARAMS["day"] if 6 <= tw_hour < 18 else _DISPERSION_PARAMS["night"]
 
 # 台灣各縣市重心座標（lat, lng）

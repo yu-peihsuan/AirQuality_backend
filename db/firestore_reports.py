@@ -1,10 +1,14 @@
 # db/firestore_reports.py
 # 民眾回報 Firestore 資料庫模組（取代 reports_db.py）
+#
+# 注意：目前沒有任何地方 import 這個模組，實際使用的是 reports_db.py。
+# 時間基準仍一併統一，避免日後啟用時重蹈同一個時區缺陷。
 
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
-from datetime import datetime, timedelta
+
+from core.timeutil import cutoff_iso, now_iso
 
 _KEY_PATH = os.path.join(
     os.path.dirname(__file__), "..",
@@ -45,8 +49,8 @@ def insert_report(record: dict):
         "event_type":   se.get("event_type"),
         "severity":     se.get("severity"),
         "is_confirmed": bool(se.get("is_confirmed_pollution_event")),
-        "published_at": record.get("published_at", datetime.now().isoformat()),
-        "timestamp":    record.get("timestamp", datetime.now().isoformat()),
+        "published_at": record.get("published_at", now_iso()),
+        "timestamp":    record.get("timestamp", now_iso()),
         "structured_event": se,
     }
     db.collection("user_reports").add(doc)
@@ -62,7 +66,7 @@ def _doc_to_dict(doc) -> dict:
 def get_recent_reports(hours: int = 24) -> list[dict]:
     """回傳最近 N 小時的全部回報（含未確認）。"""
     db = _get_db()
-    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    cutoff = cutoff_iso(hours=hours)
     docs = (
         db.collection("user_reports")
         .where("timestamp", ">=", cutoff)
@@ -98,7 +102,7 @@ def get_confirmed_reports() -> list[dict]:
 def get_recent_confirmed_by_county(county: str, hours: int = 24) -> list[dict]:
     """回傳近 N 小時、指定縣市的確認回報（供 RAG 事件描述用）。"""
     db = _get_db()
-    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    cutoff = cutoff_iso(hours=hours)
     docs = (
         db.collection("user_reports")
         .where("is_confirmed", "==", True)
