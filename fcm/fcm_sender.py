@@ -5,20 +5,27 @@ import os
 import firebase_admin
 from firebase_admin import credentials, messaging
 
-# FCM 單次 multicast 的硬性上限。超過這個數量整批會被拒絕
-# （回 400 too many registration tokens），不是只丟掉多的那些。
+# firebase_admin 的 multicast 上限。實測 7.5.0：send_each_for_multicast 會把
+# MulticastMessage 展開成一則則 Message 再送，展開後若超過 500 則，函式庫會在
+# 送出前自己丟 ValueError('messages must not contain more than 500 elements.')——
+# 是客戶端擋下來的，不是伺服器回 400，別去查不存在的 HTTP 回應。
+# 舊程式碼沒分批，這個 ValueError 會被外層 except 接住變成整批失敗。
 _MULTICAST_LIMIT = 500
 
-# 代表「這個 token 已經不存在」的錯誤碼。收到就該從 token 檔刪掉，
-# 否則每次推播都會多一筆必然失敗的請求。
-_DEAD_TOKEN_CODES = {
-    "UNREGISTERED",
-    "NOT_FOUND",
-    "INVALID_ARGUMENT",
-    "registration-token-not-registered",
-    "invalid-registration-token",
-    "invalid-argument",
-}
+# 代表「這個 token 已經不存在／不屬於本專案」的例外類別。這是主要判準：
+# 類別是傳訊專用的，語意明確。實測 firebase-admin 7.5.0 的 .code 分別是
+# NOT_FOUND 與 PERMISSION_DENIED——後者是通用碼，專案層級的權限問題也會
+# 回同一個，所以不能只靠字串比對，否則一次設定錯誤就清空整個 token 檔。
+_DEAD_TOKEN_TYPES = (messaging.UnregisteredError, messaging.SenderIdMismatchError)
+
+# 後備判準：萬一日後版本換了類別名稱，仍可由錯誤碼認出來。
+# 只收語意夠窄的兩個，PERMISSION_DENIED 刻意不列入（理由同上）。
+_DEAD_TOKEN_CODES = {"NOT_FOUND", "UNREGISTERED", "INVALID_ARGUMENT"}
+
+# 防呆：整批每一則都被判定失效時，比起「所有裝置剛好同時解除安裝」，
+# 遠更可能是推播內容或憑證有問題（payload 不合法會讓整批回
+# INVALID_ARGUMENT）。這種情況一筆都不刪，只留下大聲的 log。
+_MASS_DELETE_GUARD = 10
 
 
 def _init_firebase():
@@ -55,6 +62,13 @@ def send_notification(token: str, title: str, body: str, data: dict = None) -> b
         return False
 
 
+def _is_dead_token(exc, code: str) -> bool:
+    """這則失敗是否代表 token 本身已經沒救（而非暫時性錯誤）。"""
+    if isinstance(exc, _DEAD_TOKEN_TYPES):
+        return True
+    return code in _DEAD_TOKEN_CODES
+
+
 def _error_code(exc) -> str:
     """從 firebase_admin 的例外取出可判讀的錯誤碼。"""
     for attr in ("code", "cause"):
@@ -66,6 +80,9 @@ def _error_code(exc) -> str:
 
 def _send_chunk(tokens: list[str], title: str, body: str, data: dict) -> dict:
     """送出一批（<= 500 筆）並逐則檢查結果。"""
+    # tokens= 會觸發 DeprecationWarning（函式庫在推 fids），但**不要**改成 fids：
+    # fids 是 Firebase Installation ID，跟 App 的 onNewToken 給的註冊 token
+    # 是兩種不同的識別碼，換過去會全部送不到人。
     message = messaging.MulticastMessage(
         notification=messaging.Notification(title=title, body=body),
         data={k: str(v) for k, v in (data or {}).items()},
@@ -80,8 +97,13 @@ def _send_chunk(tokens: list[str], title: str, body: str, data: dict) -> dict:
             continue
         code = _error_code(resp.exception)
         errors.append(f"{token[:12]}…: {code or resp.exception}")
-        if code in _DEAD_TOKEN_CODES:
+        if _is_dead_token(resp.exception, code):
             dead.append(token)
+
+    if dead and len(dead) == len(tokens) and len(tokens) >= _MASS_DELETE_GUARD:
+        print(f"⚠️  整批 {len(tokens)} 則全部被判定為失效 token——推播內容或憑證"
+              f"有問題的可能性遠高於此，本批不執行清除")
+        dead = []
 
     return {
         "success": response.success_count,

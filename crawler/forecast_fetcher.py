@@ -29,8 +29,18 @@ _AREA_TO_COUNTIES: dict[str, list[str]] = {
     "高屏":   ["高雄市", "屏東縣"],
     "宜蘭":   ["宜蘭縣"],
     "花東":   ["花蓮縣", "台東縣"],
-    "離島":   ["澎湖縣", "金門縣", "連江縣"],
+    # 環境部把離島拆成三個獨立的預報區,沒有「離島」這一區;
+    # 「馬祖」對應的縣市全名是連江縣,裝置註冊時存的是後者。
+    "澎湖":   ["澎湖縣"],
+    "金門":   ["金門縣"],
+    "馬祖":   ["連江縣"],
+    "離島":   ["澎湖縣", "金門縣", "連江縣"],   # 保留:萬一上游改回合併發布
 }
+
+# 反查表裡出現過的完整縣市名。fallback 只能回傳這裡面的名稱——
+# 短名(「澎湖」)拿去 get_tokens_by_county() 對不上存的「澎湖縣」,
+# 卻又因為清單非空而不會觸發警告,等於靜默漏推。
+_ALL_COUNTIES: set[str] = {c for cs in _AREA_TO_COUNTIES.values() for c in cs}
 
 
 def _county_to_area(county: str) -> str | None:
@@ -50,7 +60,7 @@ def counties_in_area(area: str) -> list[str]:
     for area_short, counties in _AREA_TO_COUNTIES.items():
         if area_short in norm:
             return list(counties)
-    return [norm] if _county_to_area(norm) else []
+    return [norm] if norm in _ALL_COUNTIES else []
 
 
 def _aqi_rank(aqi: int) -> int:
