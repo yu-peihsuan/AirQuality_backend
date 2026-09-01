@@ -211,7 +211,9 @@ def _aqi_alert_push_job():
 
         for county, aqi in county_max.items():
             prev_key = f"aqi_prev:{county}"
-            prev = push_state_get_int(prev_key, 0)
+            # 預設 -1 而不是 0：門檻可以設到 0，而「跨過」的判斷是
+            # prev < 門檻 <= aqi，prev 從 0 起算的話門檻 0 永遠不會成立。
+            prev = push_state_get_int(prev_key, -1)
 
             # AQI 沒有上升：不會有人「剛跨過」門檻，不推播。
             # 下降時要不要把記錄跟著調低，見 _update_prev_aqi 的說明。

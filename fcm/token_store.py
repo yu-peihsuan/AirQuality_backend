@@ -137,9 +137,11 @@ _SENSITIVE_CONDITIONS = [
 DEFAULT_THRESHOLD_GENERAL   = 151
 DEFAULT_THRESHOLD_SENSITIVE = 101
 
-# 使用者可設定的範圍。低於 50 幾乎天天觸發，高於 300 等於沒設定。
-THRESHOLD_MIN = 50
-THRESHOLD_MAX = 300
+# 使用者可設定的範圍，涵蓋整個 AQI 刻度。
+# 下限設 0 是為了讓 App 的滑桿能從頭拉到尾；實際上很低的值因為
+# 「跨過才通知」的語意，只會在第一次量到時通知一次（見 main._aqi_alert_push_job）。
+THRESHOLD_MIN = 0
+THRESHOLD_MAX = 500
 
 
 def is_sensitive(record: dict) -> bool:
