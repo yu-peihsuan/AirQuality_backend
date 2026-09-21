@@ -92,7 +92,7 @@ python test_timezone.py    # 時間基準：時間窗、上游格式，共 25 �
 | GET | /api/user_reports | 查詢 24 小時內民眾回報（可帶 `region`） |
 | GET | /api/user_reports/history | 查詢所有歷史回報（需裝置憑證） |
 | POST | /api/report | 提交民眾回報（需裝置憑證） |
-| POST | /api/rag_advice | 取得個人化健康建議（需裝置憑證） |
+| POST | /api/rag_advice | 取得個人化健康建議（需裝置憑證；`lang` 可選 zh／en） |
 | POST | /api/rag_advice/experiment | RAG 消融實驗（需管理員） |
 | GET | /api/hotspots | 污染熱點分析（`min_reports`、`radius_km`、`top_n`） |
 | POST | /api/fcm/register | 上傳 FCM token（需裝置憑證） |

@@ -610,6 +610,9 @@ class RagAdviceRequest(BaseModel):
     aqi: int | None = None
     pm25: float | None = None
     user_profile: UserProfile = UserProfile()
+    # 建議要用哪個語言生成。收 BCP-47（zh-TW、en-US）或主標籤（zh、en），
+    # 認不得的值在 normalize_lang() 退回中文，舊版 App 不送這個欄位也照舊。
+    lang: str = "zh"
 
 
 # ── API Endpoints ────────────────────────────────────────────────────────────
@@ -944,6 +947,9 @@ def get_rag_advice(req: RagAdviceRequest, caller: CallerIdentity = Depends(get_c
     RAG 個人化空氣品質建議端點。
     根據用戶位置、健康檔案，結合當前 AQI/氣象資料與近期污染事件，
     透過 RAG + GPT 生成個人化建議。
+
+    req.lang 只決定 advice 的語言；aqi_level、event_context 等欄位一律
+    維持中文原值（它們是資料，不是文案），由客戶端自行決定怎麼顯示。
     """
     try:
         county = req.county
@@ -1041,6 +1047,7 @@ def get_rag_advice(req: RagAdviceRequest, caller: CallerIdentity = Depends(get_c
             weather_desc=weather_desc,
             is_raining=is_raining,
             weather_forecast=weather_forecast,
+            lang=req.lang,
         )
 
         return {
