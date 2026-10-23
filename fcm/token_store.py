@@ -255,3 +255,27 @@ def mark_daily_sent(token: str, today: str):
                 t["daily_last_sent"] = today
                 _save(tokens)
                 return
+
+
+# ── 儲存後端選擇 ──────────────────────────────────────────────────────────────
+# Cloud Run 的磁碟是暫時性的，實例一換上面這份 JSON 就消失（詳見
+# token_store_firestore.py 開頭）。正式環境改用 Firestore，以同名函式覆蓋
+# 上面的 JSON 版；本機開發與測試沿用 JSON，避免寫到正式的 Firestore。
+#
+# TOKEN_STORE 可明確指定 "firestore" 或 "json"；未指定時依 K_SERVICE
+# （Cloud Run 自動注入的環境變數）判斷是否在 Cloud Run 上。
+def _use_firestore() -> bool:
+    backend = os.getenv("TOKEN_STORE", "").strip().lower()
+    if backend in ("firestore", "json"):
+        return backend == "firestore"
+    return bool(os.getenv("K_SERVICE"))
+
+
+if _use_firestore():
+    # 放在檔案最後：token_store_firestore 會反過來 import 上面的
+    # _normalize_county 與 _haversine，此時它們都已定義完成
+    from fcm.token_store_firestore import (  # noqa: E402,F401
+        register_token, claim_token, get_tokens_by_county, get_sensitive_tokens_by_county,
+        get_tokens_near, get_all_tokens, remove_tokens, get_token_county, get_token_record,
+        set_daily_preference, get_due_daily_tokens, mark_daily_sent,
+    )
