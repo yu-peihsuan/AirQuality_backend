@@ -177,7 +177,8 @@ AirQuality_backend/
 │   └── interpolation.py        # IDW 空間插值
 ├── fcm/                        # 推播
 │   ├── fcm_sender.py           # Firebase 推播發送
-│   └── token_store.py          # FCM token 與每日通知設定
+│   ├── token_store.py          # FCM token 與每日通知設定（本機 JSON）
+│   └── token_store_firestore.py # 同介面的 Firestore 版，Cloud Run 上自動啟用
 ├── analysis/                   # 驗證與實驗腳本
 │   ├── idw_validation.py       # IDW vs 最近測站法 LOOCV 驗證
 │   └── rag_ablation.py         # RAG 情境欄位消融實驗
@@ -198,4 +199,4 @@ gcloud run deploy airquality-api --source . --region asia-east1
 ```
 
 環境變數已設定於 Cloud Run 服務上，重新部署自動沿用，網址不變。
-注意 **Cloud Run 磁碟為暫時性，重新部署會清空民眾回報與裝置資料**，展示前避免部署。
+注意 **Cloud Run 磁碟為暫時性，實例替換或重新部署都會清空民眾回報與裝置憑證**，展示前避免部署。FCM token 與每日通知設定例外：Cloud Run 上存於 Firestore 的 `fcm_tokens` 集合（依 `K_SERVICE` 自動切換，可用 `TOKEN_STORE=json|firestore` 覆寫），不受影響。
