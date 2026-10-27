@@ -22,6 +22,16 @@ _DEAD_TOKEN_TYPES = (messaging.UnregisteredError, messaging.SenderIdMismatchErro
 # 只收語意夠窄的兩個，PERMISSION_DENIED 刻意不列入（理由同上）。
 _DEAD_TOKEN_CODES = {"NOT_FOUND", "UNREGISTERED", "INVALID_ARGUMENT"}
 
+# App 的高重要度通知頻道（MyFirebaseMessagingService.CHANNEL_ID），兩邊要一致。
+# App 在背景時通知由系統直接顯示，沒指定頻道就落到 Firebase 自建的「其他」頻道：
+# 預設重要度、鎖定時不點亮螢幕，使用者回報「要解鎖才看到每日通知」。
+# 優先度明確設成 high，讓推播能穿過 Doze 休眠即時送達，不依賴預設值。
+ANDROID_CHANNEL_ID = "air_quality_alerts"
+_ANDROID_CONFIG = messaging.AndroidConfig(
+    priority="high",
+    notification=messaging.AndroidNotification(channel_id=ANDROID_CHANNEL_ID),
+)
+
 # 防呆：整批每一則都被判定失效時，比起「所有裝置剛好同時解除安裝」，
 # 遠更可能是推播內容或憑證有問題（payload 不合法會讓整批回
 # INVALID_ARGUMENT）。這種情況一筆都不刪，只留下大聲的 log。
@@ -53,6 +63,7 @@ def send_notification(token: str, title: str, body: str, data: dict = None) -> b
         message = messaging.Message(
             notification=messaging.Notification(title=title, body=body),
             data={k: str(v) for k, v in (data or {}).items()},
+            android=_ANDROID_CONFIG,
             token=token,
         )
         messaging.send(message)
@@ -86,6 +97,7 @@ def _send_chunk(tokens: list[str], title: str, body: str, data: dict) -> dict:
     message = messaging.MulticastMessage(
         notification=messaging.Notification(title=title, body=body),
         data={k: str(v) for k, v in (data or {}).items()},
+        android=_ANDROID_CONFIG,
         tokens=tokens,
     )
     response = messaging.send_each_for_multicast(message)
