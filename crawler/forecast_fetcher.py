@@ -1,4 +1,6 @@
 import os
+from datetime import datetime, timedelta
+
 import requests
 
 from core.timeutil import today_str
@@ -96,8 +98,42 @@ def _parse_aqi(raw) -> int:
         return 0
 
 
+def _is_full_day(r: dict) -> bool:
+    # 2026-11-10 起新增 timeperiod（全日／上午／下午），第 1 天會有三筆；
+    # 改版前沒有這個欄位，視為全日。
+    return str(r.get("timeperiod") or "全日").strip() == "全日"
+
+
+def _pick_forecast(records: list[dict], today: str) -> list[dict]:
+    """每個空品區挑一筆：最新一次發布中、明日的全日預報。
+
+    同一次發布裡每區有多天（改版後 4 天，第 1 天另有上午／下午），
+    API 回傳的順序不固定，不能「每區取第一筆」——那樣會隨機拿到後天、
+    大後天或半日預報，推播卻寫「明日預報」。
+    明日缺資料時退而取今天以後最近一天的全日預報。
+    """
+    tomorrow = (datetime.strptime(today, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    latest: dict[str, str] = {}
+    for r in records:
+        area = r.get("area", "")
+        latest[area] = max(latest.get(area, ""), str(r.get("publishtime", "")))
+
+    best: dict[str, dict] = {}
+    for r in records:
+        area = r.get("area", "")
+        date = str(r.get("forecastdate", ""))
+        if str(r.get("publishtime", "")) != latest[area] or not _is_full_day(r) or date < today:
+            continue
+        cur = best.get(area)
+        # 明日優先，其次日期越近越好
+        key = (date != tomorrow, date)
+        if cur is None or key < (cur.get("forecastdate") != tomorrow, cur.get("forecastdate", "")):
+            best[area] = r
+    return [best[a] for a in latest if a in best]
+
+
 def fetch_latest_forecast(county: str = None) -> list[dict]:
-    """從 AQF_P_01 取得最新空品預報，依縣市過濾，每個空品區只保留最新一筆。"""
+    """從 AQF_P_01 取得最新空品預報，依縣市過濾，每個空品區只保留明日全日那一筆。"""
     api_key = os.getenv("MOENV_API_KEY", "")
     if not api_key:
         print("⚠️  MOENV_API_KEY 未設定，跳過空品預報")
@@ -115,16 +151,7 @@ def fetch_latest_forecast(county: str = None) -> list[dict]:
 
         # 只保留今天發布的資料（publishtime 開頭是今天日期）
         records = [r for r in records if str(r.get("publishtime", "")).startswith(today)]
-
-        # 每個空品區只取第一筆（已按 publishtime desc 排序，即最新）
-        seen_areas: set[str] = set()
-        deduped = []
-        for r in records:
-            area = r.get("area", "")
-            if area not in seen_areas:
-                seen_areas.add(area)
-                deduped.append(r)
-        records = deduped
+        records = _pick_forecast(records, today)
 
         if county:
             area_short = _county_to_area(county)
