@@ -1,5 +1,8 @@
 # AirQuality Backend｜空氣品質即時監測後端
 
+前端：[yu-peihsuan/AirQualityApp](https://github.com/yu-peihsuan/AirQualityApp.git)<br>
+隱私權政策：https://air-quality-privacy-policy.vercel.app/
+
 ## 專案結構
 
 ```
